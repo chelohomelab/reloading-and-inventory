@@ -428,39 +428,150 @@ async function loadScopes() {
             container.innerHTML = '<p class="text-gray-500 col-span-3 italic text-sm">No optics registered. Add one via the Add Inventory form.</p>';
             return;
         }
-
-        container.innerHTML = scopes.map(s => {
-            const imgHtml = s.image_path
-                ? `<img src="${s.image_path}" class="w-full h-full object-cover">`
-                : `<div class="w-full h-full flex items-center justify-center text-5xl">🔭</div>`;
-            const mountLabel = s.mounted_on
-                ? `<p class="text-xs text-gray-400 truncate">Mounted: <span class="text-gray-200 font-medium">${s.mounted_on}</span></p>`
-                : `<p class="text-xs text-gray-600 italic">Not currently mounted</p>`;
-            const linkAttr = s.mounted_firearm_id
-                ? `onclick="window.location.href='firearm-detail.html?id=${s.mounted_firearm_id}'" class="cursor-pointer hover:border-blue-400/70 transition"`
-                : `class=""`;
-            return `
-            <div ${linkAttr} style="background:#1f2937;border:1px solid #374151;border-radius:0.5rem;overflow:hidden;box-shadow:0 10px 15px -3px rgba(0,0,0,.4)">
-                <div class="w-full h-40 bg-gray-950 overflow-hidden">${imgHtml}</div>
-                <div class="p-4 space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">OPTIC</span>
-                        <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-gray-900 text-gray-300 border border-gray-700">${s.units || 'MOA'}</span>
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-white">${s.brand || '—'}</h3>
-                        <p class="text-sm text-amber-500">${s.model || '—'}</p>
-                    </div>
-                    <div class="border-t border-gray-700 pt-2 space-y-1">
-                        ${mountLabel}
-                        <p class="text-xs text-gray-400">Cost Basis: <span class="text-white font-mono">$${parseFloat(s.price_paid || 0).toFixed(2)}</span></p>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
+        container.innerHTML = scopes.map(renderScopeCard).join('');
     } catch(err) {
         container.innerHTML = '<p class="text-red-400 col-span-3 italic text-sm">Failed to load optics.</p>';
     }
+}
+
+function renderScopeCard(s) {
+    const imgHtml = s.image_path
+        ? `<img src="${s.image_path}" class="w-full h-full object-cover">`
+        : `<div class="w-full h-full flex items-center justify-center text-5xl">🔭</div>`;
+    const mountLabel = s.mounted_on
+        ? `<span class="text-emerald-400 font-medium">${s.mounted_on}</span>`
+        : `<span class="text-gray-500 italic">Unmounted</span>`;
+    const mountBtnLabel = s.mounted_on ? '🔄 Change Mount' : '📍 Mount Scope';
+
+    return `
+    <div id="scope-card-${s.id}"
+        data-mount-type="${s.mount_type || ''}"
+        data-mount-id="${s.mount_type === 'firearm' ? (s.mounted_firearm_id || '') : (s.mounted_barrel_id || '')}"
+        class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden shadow-xl">
+        <div class="w-full h-40 bg-gray-950 overflow-hidden">${imgHtml}</div>
+        <div class="p-4 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">OPTIC</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-gray-900 text-gray-300 border border-gray-700">${s.units || 'MOA'}</span>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-white">${s.brand || '—'}</h3>
+                <p class="text-sm text-amber-500">${s.model || '—'}</p>
+            </div>
+            <div class="border-t border-gray-700 pt-2 space-y-1">
+                <p class="text-xs text-gray-400">📍 ${mountLabel}</p>
+                <p class="text-xs text-gray-400">Cost: <span class="text-white font-mono">$${parseFloat(s.price_paid || 0).toFixed(2)}</span></p>
+            </div>
+            <!-- Mount editor (hidden until user clicks) -->
+            <div id="scope-editor-${s.id}" class="hidden border-t border-gray-600 pt-3 space-y-2">
+                <div class="flex gap-2 items-center flex-wrap">
+                    <select id="scope-installed-${s.id}" onchange="toggleScopeMountSelect(${s.id})"
+                        class="bg-gray-700 border border-gray-600 rounded p-1.5 text-xs text-white focus:outline-none">
+                        <option value="yes" ${s.mount_type ? 'selected' : ''}>Installed</option>
+                        <option value="no" ${!s.mount_type ? 'selected' : ''}>Unmounted</option>
+                    </select>
+                    <select id="scope-mount-select-${s.id}"
+                        class="flex-1 min-w-0 bg-gray-700 border border-gray-600 rounded p-1.5 text-xs text-white focus:outline-none ${!s.mount_type ? 'hidden' : ''}">
+                        <option value="">Loading…</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveScopeMount(${s.id})" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1.5 rounded transition cursor-pointer">Save</button>
+                    <button onclick="closeScopeMountEditor(${s.id})" class="px-3 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-bold py-1.5 rounded transition cursor-pointer">Cancel</button>
+                </div>
+            </div>
+            <button onclick="openScopeMountEditor(${s.id})"
+                class="w-full mt-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-bold rounded transition cursor-pointer">
+                ${mountBtnLabel}
+            </button>
+        </div>
+    </div>`;
+}
+
+async function openScopeMountEditor(scopeId) {
+    const editor = document.getElementById(`scope-editor-${scopeId}`);
+    const select = document.getElementById(`scope-mount-select-${scopeId}`);
+    const installedSel = document.getElementById(`scope-installed-${scopeId}`);
+    if (!editor || !select) return;
+
+    editor.classList.remove('hidden');
+
+    // Fetch available mounts
+    try {
+        const res = await fetch(`/available-mounts/?for_scope_id=${scopeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        let opts = `<option value="">-- Select Platform --</option>`;
+        if (data.firearms.length > 0) {
+            opts += `<optgroup label="── General Rifles ──">` +
+                data.firearms.map(f => `<option value="firearm:${f.id}">${f.label}</option>`).join('') +
+                `</optgroup>`;
+        }
+        if (data.tc_barrels.length > 0) {
+            opts += `<optgroup label="── TC Barrels ──">` +
+                data.tc_barrels.map(b => `<option value="barrel:${b.id}">${b.label}</option>`).join('') +
+                `</optgroup>`;
+        }
+        select.innerHTML = opts;
+
+        // Pre-select current mount
+        const card = document.getElementById(`scope-card-${scopeId}`);
+        if (card) {
+            const mountType = installedSel.value === 'yes' ? card.dataset.mountType : null;
+            const mountId   = card.dataset.mountId;
+            if (mountType && mountId) {
+                const val = `${mountType}:${mountId}`;
+                for (const opt of select.options) {
+                    if (opt.value === val) { opt.selected = true; break; }
+                }
+            }
+        }
+    } catch(_) {}
+}
+
+function toggleScopeMountSelect(scopeId) {
+    const sel = document.getElementById(`scope-installed-${scopeId}`);
+    const mountSel = document.getElementById(`scope-mount-select-${scopeId}`);
+    if (!sel || !mountSel) return;
+    if (sel.value === 'yes') {
+        mountSel.classList.remove('hidden');
+    } else {
+        mountSel.classList.add('hidden');
+    }
+}
+
+async function saveScopeMount(scopeId) {
+    const installedSel = document.getElementById(`scope-installed-${scopeId}`);
+    const mountSel     = document.getElementById(`scope-mount-select-${scopeId}`);
+    if (!installedSel) return;
+
+    let mount_type = null;
+    let mount_id   = null;
+
+    if (installedSel.value === 'yes' && mountSel && mountSel.value) {
+        const [type, id] = mountSel.value.split(':');
+        mount_type = type;
+        mount_id   = parseInt(id);
+    }
+
+    try {
+        const res = await fetch(`/scopes/${scopeId}/mount`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mount_type, mount_id })
+        });
+        if (res.ok) {
+            showToast('Scope mount updated.');
+            loadScopes();
+        } else {
+            showToast('Failed to update mount.', 'error');
+        }
+    } catch(_) { showToast('Error saving mount.', 'error'); }
+}
+
+function closeScopeMountEditor(scopeId) {
+    document.getElementById(`scope-editor-${scopeId}`)?.classList.add('hidden');
 }
 
 async function loadAmmoInventory(type) {

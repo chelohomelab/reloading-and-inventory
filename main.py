@@ -265,36 +265,43 @@ async def create_barrel(
 
 # ── Scopes ─────────────────────────────────────────────────────────────────────
 
+def _scope_dict(s: models.Scope) -> dict:
+    mounted_on = None
+    mounted_firearm_id = None
+    mounted_barrel_id = None
+    mount_type = None
+    if s.firearms:
+        f = s.firearms[0]
+        mounted_on = f"{f.brand} {f.model}"
+        mounted_firearm_id = f.id
+        mount_type = "firearm"
+    elif s.barrels:
+        b = s.barrels[0]
+        mounted_on = f"{b.tc_platform or ''} {b.caliber}".strip()
+        mounted_barrel_id = b.id
+        mount_type = "barrel"
+    return {
+        "id": s.id,
+        "brand": s.brand,
+        "model": s.model,
+        "units": s.units,
+        "price_paid": s.price_paid,
+        "image_path": s.image_path,
+        "mounted_on": mounted_on,
+        "mounted_firearm_id": mounted_firearm_id,
+        "mounted_barrel_id": mounted_barrel_id,
+        "mount_type": mount_type,
+    }
+
+
 @app.get("/scopes/")
 def list_scopes(db: Session = Depends(get_db)):
-    """Returns all scopes with which firearm/barrel they are mounted on."""
     scopes = (
         db.query(models.Scope)
         .options(joinedload(models.Scope.firearms), joinedload(models.Scope.barrels))
         .all()
     )
-    result = []
-    for s in scopes:
-        mounted_on = None
-        mounted_id = None
-        if s.firearms:
-            f = s.firearms[0]
-            mounted_on = f"{f.brand} {f.model}"
-            mounted_id = f.id
-        elif s.barrels:
-            b = s.barrels[0]
-            mounted_on = f"{b.caliber} barrel"
-        result.append({
-            "id": s.id,
-            "brand": s.brand,
-            "model": s.model,
-            "units": s.units,
-            "price_paid": s.price_paid,
-            "image_path": s.image_path,
-            "mounted_on": mounted_on,
-            "mounted_firearm_id": mounted_id,
-        })
-    return result
+    return [_scope_dict(s) for s in scopes]
 
 
 @app.post("/scopes/")
@@ -311,7 +318,83 @@ async def create_scope(
     db.add(new_scope)
     db.commit()
     db.refresh(new_scope)
-    return new_scope
+    return _scope_dict(
+        db.query(models.Scope)
+        .options(joinedload(models.Scope.firearms), joinedload(models.Scope.barrels))
+        .filter(models.Scope.id == new_scope.id).first()
+    )
+
+
+@app.get("/available-mounts/")
+def get_available_mounts(for_scope_id: int = None, db: Session = Depends(get_db)):
+    """
+    Returns all firearms and TC barrels that have no scope mounted,
+    plus the current mount of for_scope_id (so it appears in the dropdown).
+    """
+    firearms = (
+        db.query(models.Firearm)
+        .filter(
+            models.Firearm.is_sold == False,
+            (models.Firearm.scope_id == None) | (models.Firearm.scope_id == for_scope_id)
+        )
+        .options(joinedload(models.Firearm.barrels))
+        .all()
+    )
+    tc_barrels = (
+        db.query(models.Barrel)
+        .filter(
+            models.Barrel.tc_platform.isnot(None),
+            (models.Barrel.scope_id == None) | (models.Barrel.scope_id == for_scope_id)
+        )
+        .all()
+    )
+    return {
+        "firearms": [
+            {"id": f.id, "label": f"{f.brand} {f.model}", "type": "firearm"}
+            for f in firearms
+        ],
+        "tc_barrels": [
+            {"id": b.id, "label": f"{b.tc_platform} {b.caliber}", "type": "barrel"}
+            for b in tc_barrels
+        ],
+    }
+
+
+class ScopeMountPayload(BaseModel):
+    mount_type: Optional[str] = None   # "firearm", "barrel", or null to unmount
+    mount_id: Optional[int] = None
+
+
+@app.patch("/scopes/{scope_id}/mount")
+def mount_scope(scope_id: int, payload: ScopeMountPayload, db: Session = Depends(get_db)):
+    """Mounts or unmounts a scope. Clears any previous mount first."""
+    scope = db.query(models.Scope).filter(models.Scope.id == scope_id).first()
+    if not scope:
+        raise HTTPException(status_code=404, detail="Scope not found")
+
+    # Clear previous mount
+    db.query(models.Firearm).filter(models.Firearm.scope_id == scope_id).update({"scope_id": None})
+    db.query(models.Barrel).filter(models.Barrel.scope_id == scope_id).update({"scope_id": None})
+
+    # Apply new mount
+    if payload.mount_type == "firearm" and payload.mount_id:
+        gun = db.query(models.Firearm).filter(models.Firearm.id == payload.mount_id).first()
+        if not gun:
+            raise HTTPException(status_code=404, detail="Firearm not found")
+        gun.scope_id = scope_id
+    elif payload.mount_type == "barrel" and payload.mount_id:
+        barrel = db.query(models.Barrel).filter(models.Barrel.id == payload.mount_id).first()
+        if not barrel:
+            raise HTTPException(status_code=404, detail="Barrel not found")
+        barrel.scope_id = scope_id
+
+    db.commit()
+    updated = (
+        db.query(models.Scope)
+        .options(joinedload(models.Scope.firearms), joinedload(models.Scope.barrels))
+        .filter(models.Scope.id == scope_id).first()
+    )
+    return _scope_dict(updated)
 
 
 # ── Thompson Center ────────────────────────────────────────────────────────────
