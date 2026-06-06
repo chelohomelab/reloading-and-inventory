@@ -32,13 +32,51 @@
     <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold tracking-wide text-amber-500">🎯 Guns & Reloading</h1>
-            <div class="space-x-2 pointer-events-auto">
-                <button onclick="switchTab('catalog-tab')" class="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 font-medium text-sm transition cursor-pointer">Inventory</button>
-                <button onclick="switchTab('measure-tab')" class="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 font-medium text-sm text-white transition cursor-pointer">🎯 Range Session</button>
+            <!-- Desktop nav (hidden on small screens) -->
+            <div class="hidden sm:flex items-center gap-2 pointer-events-auto">
+                <button onclick="switchTab('catalog-tab')" class="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 font-medium text-sm transition cursor-pointer">📦 Inventory</button>
+                <button id="nav-btn-measure" onclick="switchTab('measure-tab')" class="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 font-medium text-sm text-white transition cursor-pointer">🎯 Range Session</button>
                 <button onclick="switchTab('add-tab')" class="px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-500 font-medium text-sm text-white transition cursor-pointer">⚙️ Add Inventory</button>
+                <div class="h-5 w-px bg-gray-600 mx-1"></div>
+                {% if user.is_admin %}
+                <a href="/admin/users" class="px-2.5 py-1.5 rounded bg-gray-700 hover:bg-gray-600 font-medium text-xs text-gray-400 transition cursor-pointer">👤 Users</a>
+                {% endif %}
+                <a href="/profile/" class="px-2.5 py-1.5 rounded bg-gray-700 hover:bg-gray-600 font-medium text-xs text-gray-400 transition cursor-pointer">⚙️ {{ user.username }}</a>
+                <a href="/logout" class="px-2.5 py-1.5 rounded bg-gray-700 hover:bg-red-900 hover:text-red-300 font-medium text-xs text-gray-400 transition cursor-pointer">Sign out</a>
             </div>
+            <!-- Hamburger button (mobile only) -->
+            <button id="hamburger-btn" onclick="toggleMobileMenu()" class="sm:hidden p-2 rounded bg-gray-700 hover:bg-gray-600 cursor-pointer" aria-label="Open menu">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path id="hamburger-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
         </div>
     </nav>
+
+    <!-- Mobile menu overlay -->
+    <div id="mobile-menu-overlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] hidden"></div>
+
+    <!-- Mobile slide-in side panel -->
+    <div id="mobile-menu-panel" class="fixed top-0 left-0 h-full w-64 bg-gray-800 border-r border-gray-700 z-[70] -translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+            <span class="text-amber-500 font-bold text-sm tracking-wide">Navigation</span>
+            <button onclick="toggleMobileMenu()" class="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white cursor-pointer text-lg leading-none">✕</button>
+        </div>
+        <nav class="p-3 space-y-1 flex-1">
+            <button onclick="switchTab('catalog-tab'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded bg-gray-700 hover:bg-gray-600 font-medium text-sm transition cursor-pointer">📦 Inventory</button>
+            <button id="nav-btn-measure-mobile" onclick="switchTab('measure-tab'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded bg-blue-900/60 hover:bg-blue-900 font-medium text-sm text-blue-300 transition cursor-pointer">🎯 Range Session</button>
+            <button onclick="switchTab('add-tab'); toggleMobileMenu()" class="w-full text-left px-4 py-3 rounded bg-amber-900/60 hover:bg-amber-900 font-medium text-sm text-amber-300 transition cursor-pointer">⚙️ Add Inventory</button>
+            <a href="/profile/" onclick="toggleMobileMenu()" class="block px-4 py-3 rounded hover:bg-gray-600 font-medium text-sm text-gray-400 transition cursor-pointer">⚙️ Profile</a>
+            {% if user.is_admin %}
+            <a href="/admin/users" class="block px-4 py-3 rounded hover:bg-gray-600 font-medium text-sm text-gray-400 transition cursor-pointer">👤 User Management</a>
+            {% endif %}
+        </nav>
+        <!-- User info + logout at bottom of panel -->
+        <div class="p-3 border-t border-gray-700 space-y-1">
+            <p class="text-xs text-gray-500 px-3 pb-1">Signed in as <span class="text-gray-300 font-mono">{{ user.username }}</span></p>
+            <a href="/logout" class="block w-full text-left px-4 py-3 rounded hover:bg-red-900/60 font-medium text-sm text-gray-400 hover:text-red-300 transition cursor-pointer">🚪 Sign Out</a>
+        </div>
+    </div>
 
     <main class="container mx-auto p-4 max-w-6xl">
         
@@ -62,13 +100,14 @@
                 <!-- General / TC sub-tabs -->
                 <div class="flex items-center gap-3 mb-4 flex-wrap">
                     <div class="flex bg-gray-950 p-0.5 rounded border border-gray-800 text-xs font-bold">
-                        <button id="plat-btn-general" onclick="switchPlatformTab('general')" class="px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer">🔫 General Rifles</button>
+                        <button id="plat-btn-general" onclick="switchPlatformTab('general')" class="px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer">🔫 Rifles</button>
+                        <button id="plat-btn-shotgun" onclick="switchPlatformTab('shotgun')" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">🦆 Shotguns</button>
+                        <button id="plat-btn-handgun" onclick="switchPlatformTab('handgun')" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">🔫 Handguns</button>
                         <button id="plat-btn-tc" onclick="switchPlatformTab('tc')" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">🛠️ Thompson Center</button>
                     </div>
-                    <!-- Collection filter only shown for general rifles -->
+                    <!-- Sold filter toggle -->
                     <div id="plat-collection-filter" class="flex bg-gray-950 p-0.5 rounded border border-gray-800 text-xs font-bold">
-                        <button onclick="setCollectionFilter('active')" id="btn-filter-active" class="px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer">My Collection</button>
-                        <button onclick="setCollectionFilter('sold')" id="btn-filter-sold" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">Sold History</button>
+                        <button onclick="setCollectionFilter()" id="btn-filter-sold" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">Sold</button>
                     </div>
                 </div>
 
@@ -126,11 +165,47 @@
 
             <!-- Components pane -->
             <div id="inv-pane-components" class="hidden">
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="flex bg-gray-950 p-0.5 rounded border border-gray-800 text-xs font-bold">
+                <!-- Low stock banner (hidden until populated) -->
+                <div id="low-stock-banner" class="hidden mb-4 bg-amber-900/30 border border-amber-700/60 rounded-lg px-4 py-3">
+                    <p class="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">⚠️ Low Stock Alerts</p>
+                    <div id="low-stock-list" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- Alert Threshold Settings (collapsible) -->
+                <div class="mb-4">
+                    <button type="button" onclick="toggleThresholdSettings()" class="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-amber-400 transition cursor-pointer">
+                        <span id="threshold-toggle-icon">▶</span> Alert Thresholds
+                    </button>
+                    <div id="threshold-panel" class="hidden mt-3 bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                        <p class="text-xs text-gray-500 mb-3">Trigger a low-stock alert when quantity falls below these values.</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Powder (lbs)</label>
+                                <input type="number" step="0.1" id="thresh-powder" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Primers (count)</label>
+                                <input type="number" id="thresh-primers" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Bullets (count)</label>
+                                <input type="number" id="thresh-bullets" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Casings (count)</label>
+                                <input type="number" id="thresh-casings" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                        </div>
+                        <button onclick="saveThresholds()" class="mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded cursor-pointer transition">Save Thresholds</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 mb-4 flex-wrap">
+                    <div class="flex flex-wrap bg-gray-950 p-0.5 rounded border border-gray-800 text-xs font-bold">
                         <button id="comp-btn-powders" onclick="switchComponentFilter('powders')" class="px-3 py-1 rounded bg-gray-800 text-emerald-400 cursor-pointer">🧪 Powders</button>
                         <button id="comp-btn-primers" onclick="switchComponentFilter('primers')" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">🔥 Primers</button>
                         <button id="comp-btn-bullets" onclick="switchComponentFilter('bullets')" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">🎯 Bullets</button>
+                        <button id="comp-btn-casings" onclick="switchComponentFilter('casings')" class="px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer">💊 Casings</button>
                     </div>
                 </div>
                 <div id="components-container">
@@ -233,7 +308,7 @@
             <div class="border-b border-gray-700 pb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h2 class="text-2xl font-bold">Add Inventory Vault Registration</h2>
                 <div class="flex flex-wrap gap-1 bg-gray-950 p-1 rounded-md border border-gray-800">
-                    <button onclick="switchFormCategory('cat-platforms')" id="btn-cat-platforms" class="px-4 py-1.5 text-xs font-bold rounded bg-amber-600 text-white cursor-pointer">Rifles & Optics</button>
+                    <button onclick="switchFormCategory('cat-platforms')" id="btn-cat-platforms" class="px-4 py-1.5 text-xs font-bold rounded bg-amber-600 text-white cursor-pointer">Firearms & Optics</button>
                     <button onclick="switchFormCategory('cat-ammunition')" id="btn-cat-ammunition" class="px-4 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">Ammunition</button>
                     <button onclick="switchFormCategory('cat-components')" id="btn-cat-components" class="px-4 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🔩 Components</button>
                 </div>
@@ -242,45 +317,32 @@
             <div id="pane-platforms" class="space-y-4">
                 <!-- Add form sub-tabs -->
                 <div class="flex flex-wrap gap-1 bg-gray-950 p-1 rounded-md border border-gray-800 w-fit">
-                    <button onclick="switchAddForm('add-general')" id="btn-add-general" class="px-3 py-1.5 text-xs font-bold rounded bg-amber-600 text-white cursor-pointer">🔫 General Rifle</button>
+                    <button onclick="switchAddForm('add-general')" id="btn-add-general" class="px-3 py-1.5 text-xs font-bold rounded bg-amber-600 text-white cursor-pointer">🔫 Rifle</button>
+                    <button onclick="switchAddForm('add-shotgun')" id="btn-add-shotgun" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🦆 Shotgun</button>
+                    <button onclick="switchAddForm('add-handgun')" id="btn-add-handgun" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🔫 Handgun</button>
                     <button onclick="switchAddForm('add-tc-receiver')" id="btn-add-tc-receiver" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🛠️ TC Receiver</button>
                     <button onclick="switchAddForm('add-tc-barrel')" id="btn-add-tc-barrel" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🎯 TC Barrel</button>
                     <button onclick="switchAddForm('add-scope')" id="btn-add-scope" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🔭 Scope</button>
                 </div>
 
-                <!-- General Rifle form -->
+                <!-- Rifle form -->
                 <form id="firearm-form" class="add-platform-form bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-xl">
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-amber-500">Log General Rifle</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-amber-500">Log Rifle</h3>
+                    <input type="hidden" name="frame_type" value="Rifle">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Manufacturer / Brand</label>
-                            <select name="brand" id="rifle-brand-select" onchange="handleBrandOrModelChange(); handleDynamicDropdown(this, 'firearm_brands');" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Brand --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New Manufacturer...</option>
-                            </select>
+                            <input type="text" name="brand" id="rifle-brand-input" list="dl-firearm-brand" oninput="handleBrandOrModelChange()" required autocomplete="off" placeholder="e.g., Tikka, Savage, Ruger" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Model Line</label>
-                            <select name="model" id="rifle-model-select" onchange="handleBrandOrModelChange(); handleDynamicDropdown(this, 'firearm_models');" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Model --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New Model Line...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Frame Type</label>
-                            <select name="frame_type" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="Rifle">Rifle</option>
-                                <option value="Pistol">Pistol</option>
-                            </select>
+                            <input type="text" name="model" id="rifle-model-input" list="dl-firearm-model" oninput="handleBrandOrModelChange()" required autocomplete="off" placeholder="e.g., T3x, 110, 10/22" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Caliber</label>
-                            <select name="caliber" id="rifle-caliber-select" onchange="handleDynamicDropdown(this, 'calibers')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Caliber --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New...</option>
-                            </select>
+                            <input type="text" name="caliber" list="dl-caliber" required autocomplete="off" placeholder="e.g., 6.5 Creedmoor, .308 Win" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Twist Rate</label>
@@ -305,6 +367,76 @@
                         </div>
                     </div>
                     <button type="submit" class="w-full bg-amber-600 text-white font-bold py-2.5 rounded text-sm hover:bg-amber-500 transition shadow-md cursor-pointer">Register Rifle</button>
+                </form>
+
+                <!-- Shotgun form -->
+                <form id="shotgun-form" class="add-platform-form hidden bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-xl">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-amber-500">Log Shotgun</h3>
+                    <input type="hidden" name="frame_type" value="Shotgun">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Manufacturer / Brand</label>
+                            <input type="text" name="brand" list="dl-firearm-brand" required autocomplete="off" placeholder="e.g., Mossberg, Remington, Benelli" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Model</label>
+                            <input type="text" name="model" list="dl-firearm-model" required autocomplete="off" placeholder="e.g., 500, 870, M2" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Gauge</label>
+                            <input type="text" name="caliber" list="dl-gauge" required autocomplete="off" placeholder="e.g., 12 Gauge" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Chamber Length (optional)</label>
+                            <input type="text" name="twist_rate" placeholder='e.g., 3", 3.5"' class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Acquisition Price ($)</label>
+                            <input type="number" step="0.01" name="price" placeholder="650.00" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Photo</label>
+                            <input type="file" name="image_1" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-amber-500 file:py-1 file:px-3 file:rounded file:border-0 file:mr-2 cursor-pointer">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-amber-600 text-white font-bold py-2.5 rounded text-sm hover:bg-amber-500 transition shadow-md cursor-pointer">Register Shotgun</button>
+                </form>
+
+                <!-- Handgun form -->
+                <form id="handgun-form" class="add-platform-form hidden bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4 shadow-xl">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-amber-500">Log Handgun</h3>
+                    <input type="hidden" name="frame_type" value="Pistol">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Manufacturer / Brand</label>
+                            <input type="text" name="brand" list="dl-firearm-brand" required autocomplete="off" placeholder="e.g., Glock, Sig Sauer, S&W" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Model</label>
+                            <input type="text" name="model" list="dl-firearm-model" required autocomplete="off" placeholder="e.g., G17, P320, M&P 9" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Caliber</label>
+                            <input type="text" name="caliber" list="dl-caliber" required autocomplete="off" placeholder="e.g., 9mm, .45 ACP, .40 S&W" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Barrel Length (optional)</label>
+                            <input type="text" name="twist_rate" placeholder='e.g., 4.5"' class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Acquisition Price ($)</label>
+                            <input type="number" step="0.01" name="price" placeholder="500.00" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Photo</label>
+                            <input type="file" name="image_1" accept="image/*" class="w-full text-xs text-gray-400 file:bg-gray-700 file:text-amber-500 file:py-1 file:px-3 file:rounded file:border-0 file:mr-2 cursor-pointer">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-amber-600 text-white font-bold py-2.5 rounded text-sm hover:bg-amber-500 transition shadow-md cursor-pointer">Register Handgun</button>
                 </form>
 
                 <!-- TC Receiver form -->
@@ -347,10 +479,7 @@
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Caliber</label>
-                            <select name="caliber" id="tc-caliber-select" onchange="handleDynamicDropdown(this, 'calibers')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Caliber --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New...</option>
-                            </select>
+                            <input type="text" name="caliber" list="dl-caliber" required autocomplete="off" placeholder="e.g., .44 Mag, .223 Rem" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Barrel Length</label>
@@ -400,11 +529,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Brand</label>
-                            <input type="text" name="brand" placeholder="e.g., Vortex, Leupold" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="brand" list="dl-scope-brand" autocomplete="off" placeholder="e.g., Vortex, Leupold, Nightforce" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Model</label>
-                            <input type="text" name="model" placeholder="e.g., Viper HST 4-16x44" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="model" list="dl-scope-model" autocomplete="off" placeholder="e.g., Viper HST 4-16x44" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Adjustment Units</label>
@@ -452,10 +581,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Ammunition Manufacturer</label>
-                            <select name="brand" id="fact-mfg-select" onchange="handleDynamicDropdown(this, 'ammo_brands')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Manufacturer --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New Ammunition Brand...</option>
-                            </select>
+                            <input type="text" name="brand" list="dl-ammo-brand" autocomplete="off" required placeholder="e.g., Federal, Hornady, Winchester" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Product Model Name</label>
@@ -463,10 +589,7 @@
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Caliber Designation</label>
-                            <select name="caliber" id="fact-cal-select" onchange="handleDynamicDropdown(this, 'calibers')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Caliber --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New Caliber Type...</option>
-                            </select>
+                            <input type="text" name="caliber" list="dl-caliber" autocomplete="off" required placeholder="e.g., 6.5 Creedmoor, .308 Win" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -492,10 +615,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-gray-750 pb-4">
                         <div>
                             <label class="block text-xs text-emerald-400 font-medium mb-1">Target Caliber Configuration</label>
-                            <select name="caliber" id="hand-cal-select" onchange="handleDynamicDropdown(this, 'calibers')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Caliber --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New Caliber...</option>
-                            </select>
+                            <input type="text" name="caliber" list="dl-caliber" autocomplete="off" required placeholder="e.g., 6.5 Creedmoor" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Custom Load Recipe ID / Name</label>
@@ -512,10 +632,7 @@
                             <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Propellant & Ignition Architecture</h4>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Smokeless Powder Brand / Type</label>
-                                <select name="powder_id" id="hand-powder-select" onchange="handleDynamicDropdown(this, 'powders')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                    <option value="">-- Select Propellant stock --</option>
-                                    <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add Powder Profile...</option>
-                                </select>
+                                <input type="text" name="powder_id" list="dl-handload-powder" autocomplete="off" required placeholder="e.g., H4350, Varget" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Powder Charge Mass Weight (Grains)</label>
@@ -523,10 +640,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Primer Type Configuration</label>
-                                <select name="primer_id" id="hand-primer-select" onchange="handleDynamicDropdown(this, 'primers')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                    <option value="">-- Select Primer Stock --</option>
-                                    <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add Primer Component...</option>
-                                </select>
+                                <input type="text" name="primer_id" list="dl-handload-primer" autocomplete="off" placeholder="e.g., Federal 210M, CCI 200" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
@@ -534,10 +648,7 @@
                             <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Projectile Component & Brass Stock</h4>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Component Bullet / Projectile Variant</label>
-                                <select name="bullet_id" id="hand-bullet-select" onchange="handleDynamicDropdown(this, 'bullets')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                    <option value="">-- Select Projectile --</option>
-                                    <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add Projectile Type...</option>
-                                </select>
+                                <input type="text" name="bullet_id" list="dl-handload-bullet" autocomplete="off" required placeholder="e.g., Hornady 140gr ELD-M" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Bullet Weight (Grains)</label>
@@ -549,14 +660,51 @@
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Brass Casing Brand Asset</label>
-                                <select name="brass_brand" id="hand-brass-select" onchange="handleDynamicDropdown(this, 'brass')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                    <option value="">-- Select Brass Brand --</option>
-                                    <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New Casing Brand...</option>
-                                </select>
+                                <input type="text" name="brass_brand" list="dl-casing-brand" autocomplete="off" placeholder="e.g., Lapua, Starline" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Casing Fire-Form Cycle Count</label>
                                 <input type="number" name="brass_firings" value="0" min="0" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Component Deduction Section -->
+                    <div class="border-t border-gray-700 pt-4">
+                        <button type="button" onclick="toggleDeductSection()" class="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-amber-400 transition cursor-pointer mb-3">
+                            <span id="deduct-toggle-icon">▶</span> Deduct from Component Inventory (optional)
+                        </button>
+                        <div id="deduct-section" class="hidden space-y-3">
+                            <p class="text-xs text-gray-500">Select which inventory items to draw from and enter rounds loaded. Leave blank to skip deduction for that component.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Rounds Loaded</label>
+                                    <input type="number" name="rounds_loaded" id="deduct-rounds" min="1" placeholder="e.g., 50" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Powder Stock to Deduct From</label>
+                                    <select name="deduct_powder_id" id="deduct-powder-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                        <option value="">— Skip powder deduction —</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Primer Stock to Deduct From</label>
+                                    <select name="deduct_primer_id" id="deduct-primer-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                        <option value="">— Skip primer deduction —</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Bullet Stock to Deduct From</label>
+                                    <select name="deduct_bullet_id" id="deduct-bullet-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                        <option value="">— Skip bullet deduction —</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Casing Stock to Deduct From</label>
+                                    <select name="deduct_casing_id" id="deduct-casing-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                        <option value="">— Skip casing deduction —</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -571,6 +719,7 @@
                     <button onclick="switchAddComponent('add-powder')" id="btn-add-powder" class="px-3 py-1.5 text-xs font-bold rounded bg-emerald-600 text-white cursor-pointer">🧪 Powder</button>
                     <button onclick="switchAddComponent('add-primer')" id="btn-add-primer" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🔥 Primer</button>
                     <button onclick="switchAddComponent('add-bullet-comp')" id="btn-add-bullet-comp" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">🎯 Bullet</button>
+                    <button onclick="switchAddComponent('add-casing')" id="btn-add-casing" class="px-3 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-gray-200 cursor-pointer">💊 Casing</button>
                 </div>
 
                 <!-- Powder form -->
@@ -579,11 +728,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Brand</label>
-                            <input type="text" name="brand" placeholder="e.g., Hodgdon, Alliant, Vihtavuori" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="brand" list="dl-powder-brand" autocomplete="off" placeholder="e.g., Hodgdon, Alliant, Vihtavuori" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Product Name</label>
-                            <input type="text" name="name" placeholder="e.g., H4350, Varget, N165" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="name" list="dl-powder-name" autocomplete="off" placeholder="e.g., H4350, Varget, N165" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Weight on Hand (lbs)</label>
@@ -609,7 +758,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Brand</label>
-                            <input type="text" name="brand" placeholder="e.g., Federal, CCI, Winchester" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="brand" list="dl-primer-brand" autocomplete="off" placeholder="e.g., Federal, CCI, Winchester" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Primer Type</label>
@@ -649,18 +798,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Brand</label>
-                            <input type="text" name="brand" placeholder="e.g., Hornady, Sierra, Berger" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="brand" list="dl-bullet-brand" autocomplete="off" placeholder="e.g., Hornady, Sierra, Berger" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Product Line</label>
-                            <input type="text" name="product_line" placeholder="e.g., ELD-M, MatchKing, Hybrid" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                            <input type="text" name="product_line" list="dl-bullet-product-line" autocomplete="off" placeholder="e.g., ELD-M, MatchKing, Hybrid" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Caliber</label>
-                            <select name="caliber" id="bullet-comp-cal-select" onchange="handleDynamicDropdown(this, 'calibers')" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
-                                <option value="">-- Select Caliber --</option>
-                                <option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New...</option>
-                            </select>
+                            <input type="text" name="caliber" list="dl-caliber" autocomplete="off" required placeholder="e.g., .264 cal / 6.5mm" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -697,6 +843,47 @@
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded text-sm hover:bg-blue-500 transition shadow-md cursor-pointer">Log Bullets</button>
                 </form>
+
+                <!-- Casing form -->
+                <form id="casing-form" class="add-component-form hidden bg-gray-800 p-6 rounded-lg border border-purple-500/30 space-y-4 shadow-xl">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-purple-400">💊 Log Casing Inventory</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Brand</label>
+                            <input type="text" name="brand" list="dl-casing-brand" autocomplete="off" placeholder="e.g., Lapua, Starline, Federal" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Caliber</label>
+                            <input type="text" name="caliber" list="dl-caliber" autocomplete="off" required placeholder="e.g., 6.5 Creedmoor" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Quantity on Hand</label>
+                            <input type="number" name="quantity" placeholder="e.g., 100" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Times Fired</label>
+                            <select name="times_fired" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                                <option value="0">0 — Brand New</option>
+                                <option value="1">1 — Once Fired</option>
+                                <option value="2">2 — Twice Fired</option>
+                                <option value="3">3 — Three Times Fired</option>
+                                <option value="4">4 — Four Times Fired</option>
+                                <option value="5">5 — Five Times Fired</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Price Paid per Lot ($)</label>
+                            <input type="number" step="0.01" name="price" placeholder="e.g., 55.00" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Notes</label>
+                            <input type="text" name="notes" placeholder="Optional notes" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-purple-600 text-white font-bold py-2.5 rounded text-sm hover:bg-purple-500 transition shadow-md cursor-pointer">Log Casings</button>
+                </form>
             </div>
         </section>
 
@@ -722,6 +909,30 @@
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <!-- Autocomplete datalists — populated dynamically by app.js -->
+    <datalist id="dl-caliber"></datalist>
+    <datalist id="dl-gauge">
+        <option value="12 Gauge">
+        <option value="20 Gauge">
+        <option value="28 Gauge">
+        <option value=".410 Bore">
+    </datalist>
+    <datalist id="dl-firearm-brand"></datalist>
+    <datalist id="dl-firearm-model"></datalist>
+    <datalist id="dl-scope-brand"></datalist>
+    <datalist id="dl-scope-model"></datalist>
+    <datalist id="dl-ammo-brand"></datalist>
+    <datalist id="dl-powder-brand"></datalist>
+    <datalist id="dl-powder-name"></datalist>
+    <datalist id="dl-primer-brand"></datalist>
+    <datalist id="dl-bullet-brand"></datalist>
+    <datalist id="dl-bullet-product-line"></datalist>
+    <datalist id="dl-casing-brand"></datalist>
+    <datalist id="dl-handload-powder"></datalist>
+    <datalist id="dl-handload-primer"></datalist>
+    <datalist id="dl-handload-bullet"></datalist>
+    <datalist id="dl-handload-brass"></datalist>
+
+    <script src="/static/app.js?v=11"></script>
 </body>
 </html>

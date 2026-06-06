@@ -2,7 +2,10 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
-DATABASE_URL = "sqlite:///./reloading.db"
+import os as _os
+_os.makedirs("data", exist_ok=True)
+
+DATABASE_URL = "sqlite:///./data/reloading.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -93,6 +96,16 @@ class Barrel(Base):
 
 # --- RELOADING COMPONENT INVENTORY ---
 
+class CasingInventory(Base):
+    __tablename__ = "casing_inventory"
+    id = Column(Integer, primary_key=True, index=True)
+    brand = Column(String)
+    caliber = Column(String)
+    quantity = Column(Integer, default=0)
+    times_fired = Column(Integer, default=0)   # 0 = new, 1 = once fired, etc.
+    price_paid = Column(Float, default=0.0)
+    notes = Column(String, nullable=True)
+
 class PowderInventory(Base):
     __tablename__ = "powder_inventory"
     id = Column(Integer, primary_key=True, index=True)
@@ -165,6 +178,48 @@ class ShotString(Base):
     barrel = relationship("Barrel", back_populates="shot_strings")
     ammo = relationship("Ammo", back_populates="shot_strings")
 
+class LookupValue(Base):
+    __tablename__ = "lookup_values"
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String, nullable=False, index=True)
+    value = Column(String, nullable=False)
+
+class Setting(Base):
+    __tablename__ = "settings"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, nullable=False)
+    value = Column(String, nullable=False)
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, nullable=True)
+    hashed_password = Column(String, nullable=False)
+    is_admin = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)
+
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    preferences = relationship("UserPreference", back_populates="user", cascade="all, delete-orphan")
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, nullable=False, index=True)
+    expires_at = Column(String, nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    key = Column(String, nullable=False)
+    value = Column(String, nullable=False, default="true")
+
+    user = relationship("User", back_populates="preferences")
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     from sqlalchemy import text, inspect as sa_inspect
@@ -187,3 +242,19 @@ def init_db():
         _add_col('barrels', 'hardware_color', 'hardware_color VARCHAR')
         _add_col('barrels', 'is_threaded',    'is_threaded BOOLEAN DEFAULT FALSE')
         _add_col('barrels', 'has_muzzle_brake', 'has_muzzle_brake BOOLEAN DEFAULT FALSE')
+
+    # Seed default threshold settings if they don't exist
+    _defaults = {
+        'low_stock_powder_lbs': '0.5',
+        'low_stock_primers':    '200',
+        'low_stock_bullets':    '100',
+        'low_stock_casings':    '50',
+    }
+    db = SessionLocal()
+    try:
+        for key, val in _defaults.items():
+            if not db.query(Setting).filter(Setting.key == key).first():
+                db.add(Setting(key=key, value=val))
+        db.commit()
+    finally:
+        db.close()

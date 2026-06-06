@@ -1,5 +1,28 @@
+// =============================================================================
+// app.js — Guns & Reloading v1.0
+// =============================================================================
+// SECTION MAP
+//   1.  Canvas / range-session state          (~L10)
+//   2.  UI state trackers                     (~L25)
+//   3.  Toast, mobile menu, collection filter (~L49)
+//   4.  Photo replacement & sell modal        (~L96)
+//   5.  Form helpers & datalist               (~L183)
+//   6.  Lookup data & scope select            (~L252)
+//   7.  Tab & pane switching                  (~L308)
+//   8.  Inventory loaders (catalog, TC, scopes, ammo, components) (~L370)
+//   9.  Component cards & grouped renders     (~L526)
+//  10.  Component CRUD (qty update, delete)   (~L671)
+//  11.  Scope mount editor                    (~L770)
+//  12.  Add-form category/ammo-type switching (~L930)
+//  13.  Threshold settings panel              (~L964)
+//  14.  Range session / canvas engine         (~L1006)
+//  15.  Crop modal                            (~L1215)
+//  16.  Form submit handlers                  (~L1784)
+//  17.  Preferences & init                    (~L2200)
+// =============================================================================
+
 const canvas = document.getElementById('target-canvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas ? canvas.getContext('2d') : null;
 let imgElement = new Image();
 
 let groups = []; 
@@ -27,7 +50,10 @@ let activeItemIdForSaleLog = null;
 let activeItemIdForPictureReplacement = null;
 let currentInventoryTab = "platforms";
 let currentAmmoFilter = "factory";
-let currentPlatformTab = "general"; // "general" or "tc"
+let currentPlatformTab = "general"; // "general", "shotgun", "handgun", or "tc"
+function currentFrameType() {
+    return { general: 'Rifle', shotgun: 'Shotgun', handgun: 'Pistol' }[currentPlatformTab] || 'Rifle';
+}
 let currentComponentFilter = "powders"; // "powders", "primers", "bullets"
 
 let lookupTables = {
@@ -63,22 +89,30 @@ function showToast(message, type = 'success') {
     }, 3500);
 }
 
-// Vault Filtering Controllers
-function setCollectionFilter(filterType) {
-    currentCollectionFilter = filterType;
-    const btnActive = document.getElementById('btn-filter-active');
-    const btnSold = document.getElementById('btn-filter-sold');
-    
-    if (btnActive && btnSold) {
-        if (filterType === 'active') {
-            btnActive.className = "px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer";
-            btnSold.className = "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
-        } else {
-            btnActive.className = "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
-            btnSold.className = "px-3 py-1 rounded bg-gray-800 text-emerald-400 cursor-pointer";
-        }
+function toggleMobileMenu() {
+    const panel = document.getElementById('mobile-menu-panel');
+    const overlay = document.getElementById('mobile-menu-overlay');
+    const isOpen = !panel.classList.contains('-translate-x-full');
+    if (isOpen) {
+        panel.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+    } else {
+        panel.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
     }
-    loadCatalog();
+}
+
+// Vault Filtering Controllers
+function setCollectionFilter() {
+    currentCollectionFilter = currentCollectionFilter === 'sold' ? 'active' : 'sold';
+    const btnSold = document.getElementById('btn-filter-sold');
+    if (btnSold) {
+        btnSold.className = currentCollectionFilter === 'sold'
+            ? "px-3 py-1 rounded bg-gray-800 text-emerald-400 cursor-pointer"
+            : "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
+    }
+    if (currentPlatformTab === 'tc') loadTCInventory();
+    else loadCatalog();
 }
 
 // Picture Swap Trigger
@@ -170,12 +204,12 @@ async function submitAssetSale() {
 }
 
 function handleBrandOrModelChange() {
-    const brandSelect = document.getElementById('rifle-brand-select');
-    const modelSelect = document.getElementById('rifle-model-select');
-    if (!brandSelect || !modelSelect) return;
+    const brandEl = document.getElementById('rifle-brand-input') || document.getElementById('rifle-brand-select');
+    const modelEl = document.getElementById('rifle-model-input') || document.getElementById('rifle-model-select');
+    if (!brandEl || !modelEl) return;
 
-    const brandVal = brandSelect.value.trim().toLowerCase();
-    const modelVal = modelSelect.value.trim().toLowerCase();
+    const brandVal = brandEl.value.trim().toLowerCase();
+    const modelVal = modelEl.value.trim().toLowerCase();
     const barrelOption = document.getElementById('tc-barrel-only-option');
     const extPanel = document.getElementById('tc-modular-extension');
     const frameSelect = document.getElementById('rifle-frame-select');
@@ -240,17 +274,58 @@ function toggleScopeInputState() {
 
 async function fetchInitialLookupData() {
     try {
-        const fRes = await fetch('/catalog/');
-        if (fRes.ok) {
-            const firearms = await fRes.json();
-            lookupTables.firearm_brands = [...new Set(firearms.map(f => f.brand))].filter(Boolean);
-            lookupTables.firearm_models = [...new Set(firearms.map(f => f.model))].filter(Boolean);
-            if(firearms.some(f => f.caliber)) {
-                lookupTables.calibers = [...new Set([...lookupTables.calibers, ...firearms.map(f => f.caliber)])].filter(Boolean);
-            }
+        const res = await fetch('/lookups/');
+        if (!res.ok) return;
+        const data = await res.json();
+        // Populate datalists
+        Object.entries(data).forEach(([cat, values]) => {
+            const id = 'dl-' + cat.replace(/_/g, '-');
+            const dl = document.getElementById(id);
+            if (dl) dl.innerHTML = values.map(v => `<option value="${escHtml(v)}">`).join('');
+        });
+        // Also populate handload-powder/primer/bullet/brass from inventory names
+        if (data.powder_name) {
+            const dl = document.getElementById('dl-handload-powder');
+            if (dl) dl.innerHTML = data.powder_name.map(v => `<option value="${escHtml(v)}">`).join('');
         }
-    } catch (err) { console.error("Dictionary engine initial fault link:", err); }
-    renderAllLookupDropdowns();
+        if (data.primer_brand) {
+            const dl = document.getElementById('dl-handload-primer');
+            if (dl) dl.innerHTML = data.primer_brand.map(v => `<option value="${escHtml(v)}">`).join('');
+        }
+        if (data.bullet_brand) {
+            const dl = document.getElementById('dl-handload-bullet');
+            if (dl) dl.innerHTML = data.bullet_brand.map(v => `<option value="${escHtml(v)}">`).join('');
+        }
+        if (data.casing_brand) {
+            const dl = document.getElementById('dl-handload-brass');
+            if (dl) dl.innerHTML = data.casing_brand.map(v => `<option value="${escHtml(v)}">`).join('');
+        }
+        // Update the scope select in the firearm form
+        populateScopeSelect();
+    } catch (err) { console.error('fetchInitialLookupData error:', err); }
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function saveLookupValue(category, value) {
+    if (!value || !value.trim()) return;
+    const fd = new FormData();
+    fd.set('value', value.trim());
+    try { await fetch(`/lookups/${category}`, { method: 'POST', body: fd }); } catch(_) {}
+}
+
+async function populateScopeSelect() {
+    const sel = document.getElementById('rifle-optic-select');
+    if (!sel) return;
+    try {
+        const res = await fetch('/scopes/');
+        if (!res.ok) return;
+        const scopes = await res.json();
+        sel.innerHTML = '<option value="None">None (Iron Sights)</option>' +
+            scopes.map(s => `<option value="${s.id}">${s.brand} ${s.model}</option>`).join('');
+    } catch(_) {}
 }
 
 function switchTab(tabId) {
@@ -291,24 +366,27 @@ function switchPlatformTab(tab) {
     currentPlatformTab = tab;
     const genPane = document.getElementById('plat-pane-general');
     const tcPane  = document.getElementById('plat-pane-tc');
-    const genBtn  = document.getElementById('plat-btn-general');
-    const tcBtn   = document.getElementById('plat-btn-tc');
     const filter  = document.getElementById('plat-collection-filter');
+    const firearmTabs = ['general', 'shotgun', 'handgun'];
 
-    if (tab === 'general') {
-        genPane?.classList.remove('hidden');
-        tcPane?.classList.add('hidden');
-        filter?.classList.remove('hidden');
-        if (genBtn) genBtn.className = "px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer";
-        if (tcBtn)  tcBtn.className  = "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
-        loadCatalog();
-    } else {
+    firearmTabs.forEach(t => {
+        const btn = document.getElementById(`plat-btn-${t}`);
+        if (btn) btn.className = "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
+    });
+    const tcBtn = document.getElementById('plat-btn-tc');
+
+    if (tab === 'tc') {
         genPane?.classList.add('hidden');
         tcPane?.classList.remove('hidden');
-        filter?.classList.add('hidden');
-        if (genBtn) genBtn.className = "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
-        if (tcBtn)  tcBtn.className  = "px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer";
+        if (tcBtn) tcBtn.className = "px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer";
         loadTCInventory();
+    } else {
+        genPane?.classList.remove('hidden');
+        tcPane?.classList.add('hidden');
+        if (tcBtn) tcBtn.className = "px-3 py-1 rounded text-gray-400 hover:text-gray-200 cursor-pointer";
+        const activeBtn = document.getElementById(`plat-btn-${tab}`);
+        if (activeBtn) activeBtn.className = "px-3 py-1 rounded bg-gray-800 text-amber-500 cursor-pointer";
+        loadCatalog(currentFrameType());
     }
 }
 
@@ -319,8 +397,9 @@ async function loadTCInventory() {
 
     try {
         const [recRes, barRes] = await Promise.all([fetch('/tc-receivers/'), fetch('/tc-barrels/')]);
-        const receivers = recRes.ok ? await recRes.json() : [];
-        const barrels   = barRes.ok ? await barRes.json() : [];
+        const allReceivers = recRes.ok ? await recRes.json() : [];
+        const barrels      = barRes.ok ? await barRes.json() : [];
+        const receivers    = allReceivers.filter(r => currentCollectionFilter === 'sold' ? r.is_sold : !r.is_sold);
 
         const total = receivers.length + barrels.length;
         document.getElementById('inventory-count').innerText = `${total} TC Item${total !== 1 ? 's' : ''} Registered`;
@@ -387,12 +466,14 @@ function switchAddForm(formId) {
     document.querySelectorAll('.add-platform-form').forEach(f => f.classList.add('hidden'));
     document.getElementById({
         'add-general': 'firearm-form',
+        'add-shotgun': 'shotgun-form',
+        'add-handgun': 'handgun-form',
         'add-tc-receiver': 'tc-receiver-form',
         'add-tc-barrel': 'tc-barrel-form',
         'add-scope': 'add-scope-form',
     }[formId])?.classList.remove('hidden');
 
-    const btnMap = { 'add-general': 'btn-add-general', 'add-tc-receiver': 'btn-add-tc-receiver', 'add-tc-barrel': 'btn-add-tc-barrel', 'add-scope': 'btn-add-scope' };
+    const btnMap = { 'add-general': 'btn-add-general', 'add-shotgun': 'btn-add-shotgun', 'add-handgun': 'btn-add-handgun', 'add-tc-receiver': 'btn-add-tc-receiver', 'add-tc-barrel': 'btn-add-tc-barrel', 'add-scope': 'btn-add-scope' };
     Object.entries(btnMap).forEach(([key, btnId]) => {
         const btn = document.getElementById(btnId);
         if (!btn) return;
@@ -418,7 +499,7 @@ function switchAmmoFilter(type) {
 
 function switchComponentFilter(type) {
     currentComponentFilter = type;
-    ['powders', 'primers', 'bullets'].forEach(t => {
+    ['powders', 'primers', 'bullets', 'casings'].forEach(t => {
         const btn = document.getElementById(`comp-btn-${t}`);
         if (!btn) return;
         btn.className = t === type
@@ -432,10 +513,12 @@ async function loadComponentInventory(type) {
     const container = document.getElementById('components-container');
     if (!container) return;
     container.innerHTML = '<p class="text-gray-400 italic text-sm">Loading...</p>';
+    refreshLowStockBanner();
     try {
         const res = await fetch(`/components/${type}/`);
         const items = res.ok ? await res.json() : [];
-        document.getElementById('inventory-count').innerText = `${items.length} ${type.slice(0,1).toUpperCase()+type.slice(1,-1)} Item${items.length !== 1 ? 's' : ''}`;
+        const label = {powders:'Powder',primers:'Primer',bullets:'Bullet',casings:'Casing'}[type] || type;
+        document.getElementById('inventory-count').innerText = `${items.length} ${label} Item${items.length !== 1 ? 's' : ''}`;
         if (items.length === 0) {
             container.innerHTML = `<p class="text-gray-500 italic text-sm">No ${type} logged yet. Use Add Inventory → Components.</p>`;
             return;
@@ -443,9 +526,24 @@ async function loadComponentInventory(type) {
         if (type === 'powders')  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${items.map(renderPowderCard).join('')}</div>`;
         if (type === 'primers')  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${items.map(renderPrimerCard).join('')}</div>`;
         if (type === 'bullets')  renderBulletsGrouped(items, container);
+        if (type === 'casings')  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${items.map(renderCasingCard).join('')}</div>`;
     } catch(err) {
         container.innerHTML = '<p class="text-red-400 italic text-sm">Failed to load components.</p>';
     }
+}
+
+async function refreshLowStockBanner() {
+    const banner = document.getElementById('low-stock-banner');
+    const list = document.getElementById('low-stock-list');
+    if (!banner || !list) return;
+    try {
+        const res = await fetch('/components/low-stock/');
+        const items = res.ok ? await res.json() : [];
+        if (items.length === 0) { banner.classList.add('hidden'); return; }
+        const colors = { powder: 'bg-emerald-900/60 text-emerald-300 border-emerald-700', primer: 'bg-orange-900/60 text-orange-300 border-orange-700', bullet: 'bg-blue-900/60 text-blue-300 border-blue-700', casing: 'bg-purple-900/60 text-purple-300 border-purple-700' };
+        list.innerHTML = items.map(i => `<span class="px-2 py-1 rounded border text-xs font-mono ${colors[i.type] || 'bg-gray-800 text-gray-300 border-gray-600'}">${i.label}: ${i.value}</span>`).join('');
+        banner.classList.remove('hidden');
+    } catch(_) {}
 }
 
 function renderPowderCard(p) {
@@ -533,6 +631,41 @@ function renderBulletCard(b) {
             <input type="number" placeholder="Update count" id="qty-bullet-${b.id}"
                 class="flex-1 bg-gray-700 border border-gray-600 rounded p-1.5 text-xs text-white focus:outline-none">
             <button onclick="updateComponentQty('bullets',${b.id},'quantity')" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold rounded cursor-pointer">Save</button>
+        </div>
+    </div>`;
+}
+
+function renderCasingCard(c) {
+    const low = c.quantity < 50;
+    const qtyColor = low ? 'text-red-400' : 'text-purple-400';
+    const conditionBadge = c.times_fired === 0
+        ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">NEW</span>`
+        : `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800">${c.times_fired}x FIRED</span>`;
+    return `
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3 shadow-lg hover:border-purple-500/50 transition">
+        <div class="flex justify-between items-center">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-400 border border-purple-800">CASING</span>
+            <button onclick="deleteComponent('casings',${c.id})" class="text-gray-600 hover:text-red-400 text-xs cursor-pointer">✕</button>
+        </div>
+        <div>
+            <p class="text-base font-bold text-white">${c.brand}</p>
+            <div class="flex items-center gap-2 mt-1">
+                <p class="text-sm text-purple-400">${c.caliber}</p>
+                ${conditionBadge}
+            </div>
+        </div>
+        <div class="bg-gray-900/60 rounded-lg p-3 text-center">
+            <p class="text-2xl font-bold font-mono ${qtyColor}">${(c.quantity??0).toLocaleString()} <span class="text-sm text-gray-400">count</span></p>
+            <p class="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">${low ? '⚠️ Low Stock' : 'On Hand'}</p>
+        </div>
+        <div class="border-t border-gray-700 pt-2 space-y-1">
+            <p class="text-xs text-gray-400">Paid: <span class="text-white font-mono">$${parseFloat(c.price_paid||0).toFixed(2)}</span></p>
+            ${c.notes ? `<p class="text-xs text-gray-500 italic">${c.notes}</p>` : ''}
+        </div>
+        <div class="flex gap-2">
+            <input type="number" placeholder="Update count" id="qty-casing-${c.id}"
+                class="flex-1 bg-gray-700 border border-gray-600 rounded p-1.5 text-xs text-white focus:outline-none">
+            <button onclick="updateComponentQty('casings',${c.id},'quantity')" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded cursor-pointer">Save</button>
         </div>
     </div>`;
 }
@@ -673,7 +806,7 @@ async function openScopeMountEditor(scopeId) {
 
         let opts = `<option value="">-- Select Platform --</option>`;
         if (data.firearms.length > 0) {
-            opts += `<optgroup label="── General Rifles ──">` +
+            opts += `<optgroup label="── Rifles ──">` +
                 data.firearms.map(f => `<option value="firearm:${f.id}">${f.label}</option>`).join('') +
                 `</optgroup>`;
         }
@@ -851,72 +984,46 @@ function toggleAmmoType(type) {
     }
 }
 
-function renderAllLookupDropdowns() {
-    populateDropdownOptions('rifle-brand-select', 'firearm_brands', '-- Select Brand --');
-    populateDropdownOptions('rifle-model-select', 'firearm_models', '-- Select Model --');
-    populateDropdownOptions('rifle-caliber-select', 'calibers', '-- Select Caliber --');
-    populateDropdownOptions('rifle-optic-select', 'optics', 'None (Iron Sights)', 'None');
-    populateDropdownOptions('rifle-stock-select', 'furniture', 'Factory OEM Stock', 'Factory Stock');
-    populateDropdownOptions('fact-mfg-select', 'ammo_brands', '-- Select Manufacturer --');
-    populateDropdownOptions('fact-cal-select', 'calibers', '-- Select Caliber --');
-    populateDropdownOptions('hand-cal-select', 'calibers', '-- Select Caliber --');
-    populateDropdownOptions('hand-powder-select', 'powders', '-- Select Propellant Stock --');
-    populateDropdownOptions('hand-primer-select', 'primers', '-- Select Primer Stock --');
-    populateDropdownOptions('hand-bullet-select', 'bullets', '-- Select Projectile --');
-    populateDropdownOptions('hand-brass-select', 'brass', '-- Select Brass Brand --');
+// ── Threshold Settings Panel ───────────────────────────────────────────────────
+
+async function toggleThresholdSettings() {
+    const panel = document.getElementById('threshold-panel');
+    const icon  = document.getElementById('threshold-toggle-icon');
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    icon.textContent = isHidden ? '▼' : '▶';
+    if (isHidden) await loadThresholds();
 }
 
-function populateDropdownOptions(elemId, lookupKey, fallbackText, fallbackValue = "") {
-    const dropdown = document.getElementById(elemId);
-    if (!dropdown) return;
-    let htmlStr = `<option value="${fallbackValue}">${fallbackText}</option>`;
-    lookupTables[lookupKey].forEach(val => { htmlStr += `<option value="${val}">${val}</option>`; });
-    htmlStr += `<option value="ADD_NEW" class="text-amber-400 font-bold">+ Add New...</option>`;
-    dropdown.innerHTML = htmlStr;
+async function loadThresholds() {
+    try {
+        const res = await fetch('/settings/');
+        if (!res.ok) return;
+        const s = await res.json();
+        const f = v => document.getElementById(v);
+        if (f('thresh-powder'))  f('thresh-powder').value  = s.low_stock_powder_lbs ?? 0.5;
+        if (f('thresh-primers')) f('thresh-primers').value = s.low_stock_primers    ?? 200;
+        if (f('thresh-bullets')) f('thresh-bullets').value = s.low_stock_bullets    ?? 100;
+        if (f('thresh-casings')) f('thresh-casings').value = s.low_stock_casings    ?? 50;
+    } catch(_) {}
 }
 
-function handleDynamicDropdown(selectElement, lookupKey) {
-    if (selectElement.value !== "ADD_NEW") return;
-    const promptLabel = lookupKey.replace('_', ' ').toUpperCase();
-    const newEntry = prompt(`Enter New Parameter Value for [${promptLabel}]:`);
-    
-    if (newEntry && newEntry.trim() !== "") {
-        const cleanedValue = newEntry.trim();
-        if (!lookupTables[lookupKey].includes(cleanedValue)) lookupTables[lookupKey].push(cleanedValue);
-        
-        const linkedDropdownIds = findDropdownIdsByKey(lookupKey);
-        linkedDropdownIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                let fallbackTxt = "-- Select --"; let fallbackVal = "";
-                if (id.includes('optic')) { fallbackTxt = "None (Iron Sights)"; fallbackVal = "None"; }
-                if (id.includes('stock')) { fallbackTxt = "Factory OEM Stock"; fallbackVal = "Factory Stock"; }
-                if (id.includes('cal')) fallbackTxt = "-- Select Caliber --";
-                if (id.includes('brand') || id.includes('mfg')) fallbackTxt = "-- Select Brand --";
-                if (id.includes('model')) fallbackTxt = "-- Select Model --";
-                populateDropdownOptions(id, lookupKey, fallbackTxt, fallbackVal);
-            }
-        });
-        selectElement.value = cleanedValue;
-        selectElement.dispatchEvent(new Event('change'));
-    } else {
-        selectElement.value = "";
-    }
-}
-
-function findDropdownIdsByKey(key) {
-    const mapping = {
-        'firearm_brands': ['rifle-brand-select'],
-        'firearm_models': ['rifle-model-select'],
-        'calibers': ['rifle-caliber-select', 'fact-cal-select', 'hand-cal-select', 'tc-caliber-select', 'bullet-comp-cal-select'],
-        'optics': ['rifle-optic-select'],
-        'ammo_brands': ['fact-mfg-select'],
-        'powders': ['hand-powder-select'],
-        'primers': ['hand-primer-select'],
-        'bullets': ['hand-bullet-select'],
-        'brass': ['hand-brass-select'],
+async function saveThresholds() {
+    const payload = {
+        low_stock_powder_lbs: document.getElementById('thresh-powder')?.value  || '0.5',
+        low_stock_primers:    document.getElementById('thresh-primers')?.value || '200',
+        low_stock_bullets:    document.getElementById('thresh-bullets')?.value || '100',
+        low_stock_casings:    document.getElementById('thresh-casings')?.value || '50',
     };
-    return mapping[key] || [];
+    try {
+        const res = await fetch('/settings/', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) { showToast('Alert thresholds saved.'); refreshLowStockBanner(); }
+        else showToast('Failed to save thresholds.', 'error');
+    } catch(_) { showToast('Error saving thresholds.', 'error'); }
 }
 
 async function setupMeasureDropdowns() {
@@ -938,7 +1045,7 @@ async function setupMeasureDropdowns() {
 
         let gunOptions = `<option value="">-- Select Platform --</option>`;
         if (items.length > 0) {
-            gunOptions += `<optgroup label="── General Rifles ──">` +
+            gunOptions += `<optgroup label="── Rifles ──">` +
                 items.map(g => `<option value="${g.id}">${g.brand} ${g.model}</option>`).join('') +
                 `</optgroup>`;
         }
@@ -1697,10 +1804,12 @@ async function commitSessionToDatabase() {
 }
 function resetCanvas() { calibrationPoints = []; currentGroupShots = []; groups = []; pixelsPerInch = null; state = imgElement.src ? "calibrating" : "idle"; redrawCanvas(); }
 
-async function loadCatalog() {
+async function loadCatalog(frameType = currentFrameType()) {
     const container = document.getElementById('catalog-container');
-    const response = await fetch('/catalog/');
-    const inventory = await response.json();
+    const url = `/catalog/?frame_type=${encodeURIComponent(frameType)}`;
+    const response = await fetch(url);
+    const all = await response.json();
+    const inventory = all.filter(g => currentCollectionFilter === 'sold' ? g.is_sold : !g.is_sold);
 
     document.getElementById('inventory-count').innerText = `${inventory.length} Platform${inventory.length !== 1 ? 's' : ''} Logged`;
     container.innerHTML = '';
@@ -1745,6 +1854,12 @@ if (firearmForm) {
         try {
             const response = await fetch('/firearms/', { method: 'POST', body: formData });
             if (response.ok) {
+                const fd = formData;
+                await Promise.all([
+                    saveLookupValue('firearm_brand', fd.get('brand')),
+                    saveLookupValue('firearm_model', fd.get('model')),
+                    saveLookupValue('caliber',       fd.get('caliber')),
+                ]);
                 e.target.reset(); const ext = document.getElementById('tc-modular-extension'); if (ext) ext.classList.add('hidden');
                 showToast('Hardware logged successfully.'); await fetchInitialLookupData(); switchTab('catalog-tab');
             } else {
@@ -1752,6 +1867,43 @@ if (firearmForm) {
                 e.target.reset(); switchTab('catalog-tab');
             }
         } catch (err) { e.target.reset(); switchTab('catalog-tab'); }
+    });
+}
+
+const shotgunForm = document.getElementById('shotgun-form');
+if (shotgunForm) {
+    shotgunForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); const formData = new FormData(e.target);
+        try {
+            const response = await fetch('/firearms/', { method: 'POST', body: formData });
+            if (response.ok) {
+                const fd = formData;
+                await Promise.all([
+                    saveLookupValue('firearm_brand', fd.get('brand')),
+                    saveLookupValue('firearm_model', fd.get('model')),
+                ]);
+                e.target.reset(); showToast('Shotgun logged successfully.'); switchTab('catalog-tab');
+            } else { showToast('Failed to save shotgun.', 'error'); }
+        } catch (err) { showToast('Failed to save shotgun.', 'error'); }
+    });
+}
+
+const handgunForm = document.getElementById('handgun-form');
+if (handgunForm) {
+    handgunForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); const formData = new FormData(e.target);
+        try {
+            const response = await fetch('/firearms/', { method: 'POST', body: formData });
+            if (response.ok) {
+                const fd = formData;
+                await Promise.all([
+                    saveLookupValue('firearm_brand', fd.get('brand')),
+                    saveLookupValue('firearm_model', fd.get('model')),
+                    saveLookupValue('caliber',       fd.get('caliber')),
+                ]);
+                e.target.reset(); showToast('Handgun logged successfully.'); switchTab('catalog-tab');
+            } else { showToast('Failed to save handgun.', 'error'); }
+        } catch (err) { showToast('Failed to save handgun.', 'error'); }
     });
 }
 
@@ -1763,6 +1915,10 @@ if (factoryAmmoForm) {
         try {
             const response = await fetch('/ammo/', { method: 'POST', body: formData });
             if (response.ok) {
+                await Promise.all([
+                    saveLookupValue('ammo_brand', formData.get('brand')),
+                    saveLookupValue('caliber',    formData.get('caliber')),
+                ]);
                 e.target.reset();
                 showToast('Factory load registered.');
             } else {
@@ -1782,12 +1938,52 @@ if (handloadForm) {
         formData.set('is_handload', 'true');
         try {
             const response = await fetch('/ammo/', { method: 'POST', body: formData });
-            if (response.ok) {
-                e.target.reset();
-                showToast('Handload recipe committed to vault.');
-            } else {
-                showToast('Failed to save handload recipe.', 'error');
+            if (!response.ok) { showToast('Failed to save handload recipe.', 'error'); return; }
+
+            await Promise.all([
+                saveLookupValue('caliber',          formData.get('caliber')),
+                saveLookupValue('handload_powder',  formData.get('powder_id')),
+                saveLookupValue('handload_primer',  formData.get('primer_id')),
+                saveLookupValue('handload_bullet',  formData.get('bullet_id')),
+                saveLookupValue('handload_brass',   formData.get('brass_brand')),
+            ]);
+
+            // Run component deduction if the section was filled out
+            const rounds = parseInt(formData.get('rounds_loaded'));
+            const powderCharge = parseFloat(formData.get('powder_charge'));
+            const powderId = formData.get('deduct_powder_id');
+            const primerId = formData.get('deduct_primer_id');
+            const bulletId = formData.get('deduct_bullet_id');
+            const casingId = formData.get('deduct_casing_id');
+
+            const hasDeduction = rounds > 0 && (powderId || primerId || bulletId || casingId);
+            if (hasDeduction) {
+                const payload = {
+                    rounds_loaded: rounds,
+                    powder_charge_gr: powderCharge || null,
+                    powder_inv_id: powderId ? parseInt(powderId) : null,
+                    primer_inv_id: primerId ? parseInt(primerId) : null,
+                    bullet_inv_id: bulletId ? parseInt(bulletId) : null,
+                    casing_inv_id: casingId ? parseInt(casingId) : null,
+                };
+                const dRes = await fetch('/components/deduct/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (dRes.ok) {
+                    const { warnings } = await dRes.json();
+                    warnings.forEach(w => showToast(w, 'error'));
+                }
             }
+
+            e.target.reset();
+            // Collapse deduct section and reset toggle
+            const ds = document.getElementById('deduct-section');
+            const di = document.getElementById('deduct-toggle-icon');
+            if (ds) ds.classList.add('hidden');
+            if (di) di.textContent = '▶';
+            showToast('Handload committed.' + (hasDeduction ? ` Inventory updated for ${rounds} rounds.` : ''));
         } catch (err) {
             showToast('Error saving handload recipe.', 'error');
         }
@@ -1849,7 +2045,7 @@ async function toggleScopeAddMount() {
                 const data = res.ok ? await res.json() : { firearms: [], tc_barrels: [] };
                 let opts = `<option value="">-- Select Platform --</option>`;
                 if (data.firearms.length > 0) {
-                    opts += `<optgroup label="── General Rifles ──">` +
+                    opts += `<optgroup label="── Rifles ──">` +
                         data.firearms.map(f => `<option value="firearm:${f.id}">${f.label}</option>`).join('') +
                         `</optgroup>`;
                 }
@@ -1878,6 +2074,10 @@ if (addScopeForm) {
             const res = await fetch('/scopes/', { method: 'POST', body: formData });
             if (!res.ok) { showToast('Failed to register scope.', 'error'); return; }
             const scope = await res.json();
+            await Promise.all([
+                saveLookupValue('scope_brand', formData.get('brand')),
+                saveLookupValue('scope_model', formData.get('model')),
+            ]);
 
             // Mount immediately if the user chose a platform
             if (installedSel?.value === 'yes' && mountSel?.value) {
@@ -1905,8 +2105,9 @@ if (addScopeForm) {
 
 function switchAddComponent(formId) {
     document.querySelectorAll('.add-component-form').forEach(f => f.classList.add('hidden'));
-    document.getElementById({ 'add-powder': 'powder-form', 'add-primer': 'primer-form', 'add-bullet-comp': 'bullet-comp-form' }[formId])?.classList.remove('hidden');
-    const btnMap = { 'add-powder': 'btn-add-powder', 'add-primer': 'btn-add-primer', 'add-bullet-comp': 'btn-add-bullet-comp' };
+    const formMap = { 'add-powder': 'powder-form', 'add-primer': 'primer-form', 'add-bullet-comp': 'bullet-comp-form', 'add-casing': 'casing-form' };
+    document.getElementById(formMap[formId])?.classList.remove('hidden');
+    const btnMap = { 'add-powder': 'btn-add-powder', 'add-primer': 'btn-add-primer', 'add-bullet-comp': 'btn-add-bullet-comp', 'add-casing': 'btn-add-casing' };
     Object.entries(btnMap).forEach(([key, btnId]) => {
         const btn = document.getElementById(btnId);
         if (!btn) return;
@@ -1916,14 +2117,57 @@ function switchAddComponent(formId) {
     });
 }
 
+function toggleDeductSection() {
+    const section = document.getElementById('deduct-section');
+    const icon = document.getElementById('deduct-toggle-icon');
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden');
+    icon.textContent = isHidden ? '▼' : '▶';
+    if (isHidden) loadDeductionDropdowns();
+}
+
+async function loadDeductionDropdowns() {
+    const [powders, primers, bullets, casings] = await Promise.all([
+        fetch('/components/powders/').then(r => r.ok ? r.json() : []),
+        fetch('/components/primers/').then(r => r.ok ? r.json() : []),
+        fetch('/components/bullets/').then(r => r.ok ? r.json() : []),
+        fetch('/components/casings/').then(r => r.ok ? r.json() : []),
+    ]);
+
+    const pSel = document.getElementById('deduct-powder-select');
+    const prSel = document.getElementById('deduct-primer-select');
+    const bSel = document.getElementById('deduct-bullet-select');
+    const cSel = document.getElementById('deduct-casing-select');
+
+    if (pSel) {
+        pSel.innerHTML = '<option value="">— Skip powder deduction —</option>' +
+            powders.map(p => `<option value="${p.id}">${p.brand} ${p.name} (${p.weight_lbs} lbs)</option>`).join('');
+    }
+    if (prSel) {
+        prSel.innerHTML = '<option value="">— Skip primer deduction —</option>' +
+            primers.map(p => `<option value="${p.id}">${p.brand} ${p.primer_type} (${p.quantity} ct)</option>`).join('');
+    }
+    if (bSel) {
+        bSel.innerHTML = '<option value="">— Skip bullet deduction —</option>' +
+            bullets.map(b => `<option value="${b.id}">${b.brand} ${b.caliber} ${b.weight_gr}gr (${b.quantity} ct)</option>`).join('');
+    }
+    if (cSel) {
+        cSel.innerHTML = '<option value="">— Skip casing deduction —</option>' +
+            casings.map(c => `<option value="${c.id}">${c.brand} ${c.caliber} ${c.condition_label} (${c.quantity} ct)</option>`).join('');
+    }
+}
+
 const powderForm = document.getElementById('powder-form');
 if (powderForm) {
     powderForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const fd = new FormData(e.target);
         try {
-            const res = await fetch('/components/powders/', { method: 'POST', body: new FormData(e.target) });
-            if (res.ok) { e.target.reset(); showToast('Powder logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('powders'); }
-            else showToast('Failed to log powder.', 'error');
+            const res = await fetch('/components/powders/', { method: 'POST', body: fd });
+            if (res.ok) {
+                await Promise.all([saveLookupValue('powder_brand', fd.get('brand')), saveLookupValue('powder_name', fd.get('name'))]);
+                e.target.reset(); showToast('Powder logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('powders');
+            } else showToast('Failed to log powder.', 'error');
         } catch(_) { showToast('Error saving powder.', 'error'); }
     });
 }
@@ -1932,10 +2176,13 @@ const primerForm = document.getElementById('primer-form');
 if (primerForm) {
     primerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const fd = new FormData(e.target);
         try {
-            const res = await fetch('/components/primers/', { method: 'POST', body: new FormData(e.target) });
-            if (res.ok) { e.target.reset(); showToast('Primers logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('primers'); }
-            else showToast('Failed to log primers.', 'error');
+            const res = await fetch('/components/primers/', { method: 'POST', body: fd });
+            if (res.ok) {
+                await saveLookupValue('primer_brand', fd.get('brand'));
+                e.target.reset(); showToast('Primers logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('primers');
+            } else showToast('Failed to log primers.', 'error');
         } catch(_) { showToast('Error saving primers.', 'error'); }
     });
 }
@@ -1944,12 +2191,53 @@ const bulletCompForm = document.getElementById('bullet-comp-form');
 if (bulletCompForm) {
     bulletCompForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const fd = new FormData(e.target);
         try {
-            const res = await fetch('/components/bullets/', { method: 'POST', body: new FormData(e.target) });
-            if (res.ok) { e.target.reset(); showToast('Bullets logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('bullets'); }
-            else showToast('Failed to log bullets.', 'error');
+            const res = await fetch('/components/bullets/', { method: 'POST', body: fd });
+            if (res.ok) {
+                await Promise.all([
+                    saveLookupValue('bullet_brand', fd.get('brand')),
+                    saveLookupValue('bullet_product_line', fd.get('product_line')),
+                    saveLookupValue('caliber', fd.get('caliber')),
+                ]);
+                e.target.reset(); showToast('Bullets logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('bullets');
+            } else showToast('Failed to log bullets.', 'error');
         } catch(_) { showToast('Error saving bullets.', 'error'); }
     });
 }
 
-window.onload = () => { fetchInitialLookupData(); loadCatalog(); };
+const casingForm = document.getElementById('casing-form');
+if (casingForm) {
+    casingForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+            const res = await fetch('/components/casings/', { method: 'POST', body: fd });
+            if (res.ok) {
+                await Promise.all([
+                    saveLookupValue('casing_brand', fd.get('brand')),
+                    saveLookupValue('caliber', fd.get('caliber')),
+                ]);
+                e.target.reset(); showToast('Casings logged.'); switchTab('catalog-tab'); switchInventoryTab('components'); switchComponentFilter('casings');
+            } else showToast('Failed to log casings.', 'error');
+        } catch(_) { showToast('Error saving casings.', 'error'); }
+    });
+}
+
+async function applyPreferences() {
+    try {
+        const res = await fetch('/api/preferences/');
+        if (!res.ok) return;
+        const prefs = await res.json();
+        const off = (key) => prefs[key] === 'false';
+        const hide = (...ids) => ids.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+
+        if (off('feat_shotguns'))  hide('plat-btn-shotgun', 'btn-add-shotgun');
+        if (off('feat_handguns'))  hide('plat-btn-handgun', 'btn-add-handgun');
+        if (off('feat_tc'))        hide('plat-btn-tc', 'btn-add-tc-receiver', 'btn-add-tc-barrel');
+        if (off('feat_reloading')) hide('inv-btn-components', 'btn-cat-components');
+        if (off('feat_ammo_log'))  hide('inv-btn-ammo', 'btn-cat-ammunition', 'nav-btn-measure', 'nav-btn-measure-mobile');
+    } catch (_) {}
+}
+
+window.onload = () => { fetchInitialLookupData(); loadCatalog(); applyPreferences(); };
