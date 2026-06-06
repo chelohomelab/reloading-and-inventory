@@ -1081,9 +1081,7 @@ async function loadScopes() {
 }
 
 function renderScopeCard(s) {
-    const imgHtml = s.image_path
-        ? `<img src="${s.image_path}" class="w-full h-full object-contain">`
-        : `<div class="w-full h-full flex items-center justify-center text-5xl">🔭</div>`;
+    const gallery = makePhotoGallery(`scp-${s.id}`, '🔭', s.image_path, s.image_path_2);
     const mountLabel = s.mounted_on
         ? `<span class="text-emerald-400 font-medium">${s.mounted_on}</span>`
         : `<span class="text-gray-500 italic">Unmounted</span>`;
@@ -1094,7 +1092,7 @@ function renderScopeCard(s) {
         data-mount-type="${s.mount_type || ''}"
         data-mount-id="${s.mount_type === 'firearm' ? (s.mounted_firearm_id || '') : (s.mounted_barrel_id || '')}"
         class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden shadow-xl">
-        <div class="w-full h-40 bg-gray-950 overflow-hidden">${imgHtml}</div>
+        ${gallery}
         <div class="p-4 space-y-2">
             <div class="flex justify-between items-center">
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">OPTIC</span>
@@ -1132,8 +1130,41 @@ function renderScopeCard(s) {
                 class="w-full mt-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-bold rounded transition cursor-pointer">
                 ${mountBtnLabel}
             </button>
+            <div class="border-t border-gray-700 pt-2 space-y-1.5 mt-1">
+                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Photos</p>
+                <input type="file" id="sedit-p1-${s.id}" accept="image/*" class="w-full text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
+                <input type="file" id="sedit-p2-${s.id}" accept="image/*" class="w-full text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
+                <div class="flex gap-2">
+                    <button onclick="saveScopePhotos(${s.id})" class="flex-1 py-1 bg-blue-800 hover:bg-blue-700 text-white text-[10px] font-bold rounded transition cursor-pointer">📷 Save Photos</button>
+                    ${s.image_path && s.image_path_2 ? `<button onclick="swapScopePhotos(${s.id})" class="flex-1 py-1 bg-amber-800 hover:bg-amber-700 text-white text-[10px] font-bold rounded transition cursor-pointer">⭐ Swap</button>` : ''}
+                </div>
+            </div>
         </div>
     </div>`;
+}
+
+async function saveScopePhotos(scopeId) {
+    let updated = false;
+    for (const slot of [1, 2]) {
+        const file = document.getElementById(`sedit-p${slot}-${scopeId}`)?.files[0];
+        if (file) {
+            const fd = new FormData();
+            fd.append('image', file);
+            fd.append('slot', String(slot));
+            await fetch(`/scopes/${scopeId}/update-photo/`, { method: 'POST', body: fd });
+            updated = true;
+        }
+    }
+    if (updated) { showToast('Scope photos updated.'); loadScopes(); }
+    else showToast('No photos selected.', 'warn');
+}
+
+async function swapScopePhotos(scopeId) {
+    try {
+        await fetch(`/scopes/${scopeId}/swap-photos/`, { method: 'POST' });
+        showToast('Primary photo updated.');
+        loadScopes();
+    } catch { showToast('Failed to swap photos.', 'error'); }
 }
 
 async function openScopeMountEditor(scopeId) {

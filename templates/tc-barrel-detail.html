@@ -6,7 +6,7 @@
     <title>TC Barrel Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans antialiased">
+<body class="text-gray-100 font-sans antialiased" style="background-image: url('/static/images/background-2.png'); background-size: cover; background-attachment: fixed; background-position: center;">
 
     <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-50 shadow-md">
         <div class="container mx-auto flex justify-between items-center max-w-6xl">
@@ -25,10 +25,18 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-xl">
             <div class="md:col-span-1 space-y-3">
-                <div id="main-photo-viewport" class="w-full h-64 bg-gray-950 border border-gray-700 rounded-lg overflow-hidden flex items-center justify-center relative">
+                <div id="main-photo-viewport" onclick="togglePhotoPanel()" title="Click to update photos"
+                    class="w-full h-64 bg-gray-950 border border-gray-700 rounded-lg overflow-hidden flex items-center justify-center relative cursor-pointer">
                     <span class="text-xs text-gray-500">No Profile Image</span>
                 </div>
                 <div id="thumbnail-gallery-strip" class="flex gap-2 overflow-x-auto pb-1"></div>
+                <div id="photo-panel" class="hidden bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
+                    <p class="text-xs font-bold text-amber-400 uppercase tracking-wide">📷 Update Photos</p>
+                    <div class="flex gap-2 items-center">
+                        <input type="file" id="photo-slot" accept="image/*" class="flex-1 text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
+                        <button onclick="uploadDetailPhoto()" class="px-2 py-1 bg-blue-800 hover:bg-blue-700 text-white text-[10px] font-bold rounded cursor-pointer transition">Upload</button>
+                    </div>
+                </div>
             </div>
 
             <div class="md:col-span-2 flex flex-col justify-between">
@@ -210,6 +218,7 @@
 
     <script>
         let currentBarrelId = null;
+        let currentPhotoCount = 0;
         let customDistances = new Set();
         let targetBarrelObject = null;
 
@@ -219,6 +228,30 @@
             if (!panel.classList.contains('hidden')) {
                 panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+        }
+
+        function togglePhotoPanel() {
+            document.getElementById('photo-panel').classList.toggle('hidden');
+        }
+
+        async function uploadDetailPhoto() {
+            const input = document.getElementById('photo-slot');
+            const file = input?.files[0];
+            if (!file) { showDetailToast('Select a photo first.', 'error'); return; }
+            const slot = currentPhotoCount < 2 ? currentPhotoCount + 1 : 1;
+            const fd = new FormData();
+            fd.append('image', file);
+            fd.append('slot', String(slot));
+            try {
+                const res = await fetch(`/tc-barrels/${currentBarrelId}/update-photo/`, { method: 'POST', body: fd });
+                if (res.ok) {
+                    showDetailToast('Photo updated.');
+                    input.value = '';
+                    loadBarrelProfile();
+                } else {
+                    showDetailToast('Upload failed.', 'error');
+                }
+            } catch { showDetailToast('Error uploading.', 'error'); }
         }
 
         function showDetailToast(message, type = 'success') {
@@ -347,6 +380,7 @@
         }
 
         function renderImageGallery(images) {
+            currentPhotoCount = images.length;
             const viewport = document.getElementById('main-photo-viewport');
             const strip = document.getElementById('thumbnail-gallery-strip');
             if (images.length === 0) {

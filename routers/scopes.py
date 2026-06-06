@@ -116,6 +116,16 @@ async def update_scope_photo(
     return _scope_dict(_load_scope(scope_id, db))
 
 
+@router.post("/scopes/{scope_id}/swap-photos/")
+def swap_scope_photos(scope_id: int, db: Session = Depends(get_db)):
+    s = db.query(models.Scope).filter(models.Scope.id == scope_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Scope not found")
+    s.image_path, s.image_path_2 = s.image_path_2, s.image_path
+    db.commit()
+    return _scope_dict(_load_scope(scope_id, db))
+
+
 @router.get("/available-mounts/")
 def get_available_mounts(for_scope_id: int = None, db: Session = Depends(get_db)):
     firearms = (

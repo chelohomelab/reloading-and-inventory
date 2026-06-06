@@ -264,6 +264,9 @@ def init_db():
         if tbl in inspector.get_table_names():
             _add_col(tbl, col, f'{col} VARCHAR')
 
+    if 'firearms' in inspector.get_table_names():
+        _add_col('firearms', 'image_path_2', 'image_path_2 VARCHAR')
+
     if 'barrels' in inspector.get_table_names():
         _add_col('barrels', 'tc_platform',    'tc_platform VARCHAR')
         _add_col('barrels', 'barrel_length',  'barrel_length VARCHAR')
