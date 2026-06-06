@@ -1140,7 +1140,9 @@ function handleMove(e) {
 }
 function handleEnd(e) {
     if (state === "idle") return;
-    if (isMultiTouch) { isMultiTouch = false; touchStartClientPos = null; isDraggingBox = false; return; }
+    const wasMultiTouch = isMultiTouch;
+    if (e.touches && e.touches.length === 0) { isMultiTouch = false; }
+    if (wasMultiTouch) { isDraggingBox = false; touchStartClientPos = null; return; }
     if (isDraggingBox) { isDraggingBox = false; return; }
     if (touchStartClientPos && e.changedTouches) {
         const dx = e.changedTouches[0].clientX - touchStartClientPos.x;
@@ -1181,6 +1183,22 @@ function lockCalibration() {
     const metaBox = document.getElementById('group-metadata');
     if (calBox) calBox.classList.add('hidden');
     if (metaBox) metaBox.classList.remove('hidden');
+}
+
+function resetCalibration() {
+    calibrationPoints = [];
+    pixelsPerInch = null;
+    currentGroupShots = [];
+    state = "calibrating";
+    const calBox = document.getElementById('calibration-box');
+    const metaBox = document.getElementById('group-metadata');
+    const banner = document.getElementById('status-banner');
+    const liveRes = document.getElementById('live-result');
+    if (calBox) calBox.classList.add('hidden');
+    if (metaBox) metaBox.classList.add('hidden');
+    if (liveRes) liveRes.classList.add('hidden');
+    if (banner) banner.innerText = "Step 1: Click TWO points on target grid matching reference scale line intersection.";
+    redrawCanvas();
 }
 
 function updateLiveResults() {
@@ -1453,17 +1471,18 @@ function redrawCanvas() {
 
     // Draw calibration points as blue dots with a line between them
     if (calibrationPoints.length > 0) {
+        const s = canvasScale();
         ctx.fillStyle = '#3b82f6';
         ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3 * s;
         calibrationPoints.forEach(p => {
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, 10 * s, 0, Math.PI * 2);
             ctx.fill();
         });
         if (calibrationPoints.length === 2) {
             ctx.beginPath();
-            ctx.setLineDash([6, 4]);
+            ctx.setLineDash([10 * s, 6 * s]);
             ctx.moveTo(calibrationPoints[0].x, calibrationPoints[0].y);
             ctx.lineTo(calibrationPoints[1].x, calibrationPoints[1].y);
             ctx.stroke();
@@ -1482,13 +1501,16 @@ function drawStatsBox(shots, sizeInches, boxX, boxY, loadLabel, platformLabel) {
     const loadStr = trunc(loadLabel, 34);
     const platStr = trunc(platformLabel, 34);
 
+    const s = canvasScale();
+    const fs = (n) => `${Math.round(n * s)}px`;
+
     // Build lines: [text, font, color, lineAdvance]
     const lines = [
-        [`GROUP: ${sizeInches}"`, 'bold 32px monospace', '#f59e0b', 42],
+        [`GROUP: ${sizeInches}"`, `bold ${fs(32)} monospace`, '#f59e0b', 42 * s],
     ];
-    if (loadStr) lines.push([loadStr, 'bold 22px monospace', '#a3e635', 30]);
-    if (platStr) lines.push([platStr, '20px monospace',      '#60a5fa', 28]);
-    lines.push([`${shots.length} shots`, '22px monospace', '#9ca3af', 30]);
+    if (loadStr) lines.push([loadStr, `bold ${fs(22)} monospace`, '#a3e635', 30 * s]);
+    if (platStr) lines.push([platStr, `${fs(20)} monospace`,      '#60a5fa', 28 * s]);
+    lines.push([`${shots.length} shots`, `${fs(22)} monospace`, '#9ca3af', 30 * s]);
 
     if (hasChrono) {
         const avg = Math.round(velocities.reduce((a, b) => a + b, 0) / velocities.length);
@@ -1496,15 +1518,15 @@ function drawStatsBox(shots, sizeInches, boxX, boxY, loadLabel, platformLabel) {
         const sd  = velocities.length > 1
             ? Math.sqrt(velocities.reduce((a, v) => a + Math.pow(v - avg, 2), 0) / (velocities.length - 1)).toFixed(1)
             : 0;
-        lines.push([`AVG: ${avg} fps`,            'bold 26px monospace', '#60a5fa', 36]);
-        lines.push([`ES: ${es} fps  |  SD: ${sd}`, '22px monospace',     '#9ca3af', 30]);
+        lines.push([`AVG: ${avg} fps`,            `bold ${fs(26)} monospace`, '#60a5fa', 36 * s]);
+        lines.push([`ES: ${es} fps  |  SD: ${sd}`, `${fs(22)} monospace`,     '#9ca3af', 30 * s]);
         velocities.forEach((v, i) =>
-            lines.push([`  Shot ${i + 1}: ${v} fps`, '22px monospace', '#6b7280', 28])
+            lines.push([`  Shot ${i + 1}: ${v} fps`, `${fs(22)} monospace`, '#6b7280', 28 * s])
         );
     }
 
     // Measure widest line to set box width
-    const HPAD = 20, VTOP = 16, VBOT = 14;
+    const HPAD = 20 * s, VTOP = 16 * s, VBOT = 14 * s;
     let maxW = 0;
     lines.forEach(([text, font]) => {
         ctx.font = font;
@@ -1529,9 +1551,9 @@ function drawStatsBox(shots, sizeInches, boxX, boxY, loadLabel, platformLabel) {
     // Draw background
     ctx.fillStyle = 'rgba(10, 10, 20, 0.88)';
     ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3 * s;
     ctx.beginPath();
-    ctx.roundRect(boxX, boxY, BOX_W, BOX_H, 8);
+    ctx.roundRect(boxX, boxY, BOX_W, BOX_H, 8 * s);
     ctx.fill();
     ctx.stroke();
 
@@ -1549,15 +1571,18 @@ function drawStatsBox(shots, sizeInches, boxX, boxY, loadLabel, platformLabel) {
     });
 }
 
+function canvasScale() { return Math.max(1, canvas.width / 800); }
+
 function drawConnections(shots, color, width) {
     if (!ctx) return;
-    ctx.strokeStyle = color; ctx.lineWidth = width;
+    const s = canvasScale();
+    ctx.strokeStyle = color; ctx.lineWidth = width * s;
     for (let i = 0; i < shots.length; i++) {
         for (let j = i + 1; j < shots.length; j++) {
             ctx.beginPath(); ctx.moveTo(shots[i].x, shots[i].y); ctx.lineTo(shots[j].x, shots[j].y); ctx.stroke();
         }
     }
-    shots.forEach(p => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill(); });
+    shots.forEach(p => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, 8 * s, 0, Math.PI * 2); ctx.fill(); });
 }
 
 function deleteGroup(idx) {
