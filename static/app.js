@@ -37,6 +37,8 @@ let liveBoxPos = { x: 0, y: 0, customized: false };
 let isDraggingBox = false;
 let isDraggingLabelIdx = null;
 let dragOffset = { x: 0, y: 0 };
+let isMultiTouch = false;
+let touchStartClientPos = null;
 
 // Crop modal state
 let pendingGroupData = null;
@@ -1120,6 +1122,9 @@ if (canvas) {
 
 function handleStart(e) {
     if (state === "idle") return;
+    if (e.touches && e.touches.length > 1) { isMultiTouch = true; return; }
+    isMultiTouch = false;
+    touchStartClientPos = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
     const coords = getCanvasCoords(e);
     if (state === "measuring") {
         if (coords.x >= liveBoxPos.x && coords.x <= liveBoxPos.x + liveBoxDims.w && coords.y >= liveBoxPos.y && coords.y <= liveBoxPos.y + liveBoxDims.h) {
@@ -1128,11 +1133,22 @@ function handleStart(e) {
     }
 }
 function handleMove(e) {
-    if (state === "idle") return; const coords = getCanvasCoords(e);
+    if (state === "idle") return;
+    if (e.touches && e.touches.length > 1) { isMultiTouch = true; }
+    const coords = getCanvasCoords(e);
     if (isDraggingBox) { e.preventDefault(); liveBoxPos.x = coords.x - dragOffset.x; liveBoxPos.y = coords.y - dragOffset.y; liveBoxPos.customized = true; redrawCanvas(); }
 }
 function handleEnd(e) {
-    if (state === "idle") return; if (isDraggingBox) { isDraggingBox = false; return; }
+    if (state === "idle") return;
+    if (isMultiTouch) { isMultiTouch = false; touchStartClientPos = null; isDraggingBox = false; return; }
+    if (isDraggingBox) { isDraggingBox = false; return; }
+    if (touchStartClientPos && e.changedTouches) {
+        const dx = e.changedTouches[0].clientX - touchStartClientPos.x;
+        const dy = e.changedTouches[0].clientY - touchStartClientPos.y;
+        touchStartClientPos = null;
+        if (Math.sqrt(dx * dx + dy * dy) > 10) return;
+    }
+    touchStartClientPos = null;
     const coords = getCanvasCoords(e);
     if (state === "calibrating") {
         if (calibrationPoints.length < 2) calibrationPoints.push({ x: coords.x, y: coords.y });
