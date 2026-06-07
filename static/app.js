@@ -191,17 +191,27 @@ function showToast(message, type = 'success') {
     }, 3500);
 }
 
-function toggleMobileMenu() {
-    const panel = document.getElementById('mobile-menu-panel');
-    const overlay = document.getElementById('mobile-menu-overlay');
-    const isOpen = !panel.classList.contains('-translate-x-full');
-    if (isOpen) {
-        panel.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
-    } else {
-        panel.classList.remove('-translate-x-full');
-        overlay.classList.remove('hidden');
-    }
+function openSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.remove('hidden');
+    Object.assign(sidebar.style, { position: 'fixed', top: '0', left: '0', bottom: '0', display: 'flex', zIndex: '40' });
+    document.getElementById('sidebar-overlay').classList.remove('hidden');
+}
+
+function closeSidebar() {
+    if (window.innerWidth >= 1024) return;
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.add('hidden');
+    sidebar.style.cssText = '';
+    document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+
+function toggleUserMenu() {
+    const menu = document.getElementById('user-menu');
+    const arrow = document.getElementById('user-menu-arrow');
+    const isOpen = !menu.classList.contains('hidden');
+    menu.classList.toggle('hidden');
+    if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
 }
 
 // Vault Filtering Controllers
