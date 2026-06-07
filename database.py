@@ -128,6 +128,7 @@ class PrimerInventory(Base):
     __tablename__ = "primer_inventory"
     id = Column(Integer, primary_key=True, index=True)
     brand = Column(String)
+    model = Column(String, nullable=True)  # e.g., "210M", "BR2", "41"
     primer_type = Column(String)        # "Large Rifle", "Small Rifle Magnum", etc.
     quantity = Column(Integer, default=0)
     price_paid = Column(Float, default=0.0)   # per 1000
@@ -255,6 +256,7 @@ def init_db():
         ('casing_inventory', 'image_path_2'),
         ('powder_inventory', 'image_path'),
         ('powder_inventory', 'image_path_2'),
+        ('primer_inventory', 'model'),
         ('primer_inventory', 'image_path'),
         ('primer_inventory', 'image_path_2'),
         ('bullet_inventory', 'image_path'),

@@ -425,13 +425,9 @@ async function populateScopeSelect() {
 }
 
 function switchTab(tabId) {
-    const catTab = document.getElementById('catalog-tab');
-    const measTab = document.getElementById('measure-tab');
-    const addTab = document.getElementById('add-tab');
-
-    if (catTab) catTab.classList.add('hidden');
-    if (measTab) measTab.classList.add('hidden');
-    if (addTab) addTab.classList.add('hidden');
+    ['landing-tab', 'catalog-tab', 'measure-tab', 'add-tab'].forEach(id => {
+        document.getElementById(id)?.classList.add('hidden');
+    });
 
     const target = document.getElementById(tabId);
     if (target) target.classList.remove('hidden');
@@ -996,15 +992,6 @@ async function saveScopeEdit(scopeId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ brand, model, magnification, units, price_paid }),
         });
-        for (const slot of [1, 2]) {
-            const file = document.getElementById(`sedit-p${slot}-${scopeId}`)?.files[0];
-            if (file) {
-                const fd = new FormData();
-                fd.append('image', file);
-                fd.append('slot', String(slot));
-                await fetch(`/scopes/${scopeId}/update-photo/`, { method: 'POST', body: fd });
-            }
-        }
         showToast('Scope updated.');
         loadScopes();
     } catch { showToast('Failed to save scope.', 'error'); }
@@ -1086,6 +1073,7 @@ function renderScopeCard(s) {
         ? `<span class="text-emerald-400 font-medium">${s.mounted_on}</span>`
         : `<span class="text-gray-500 italic">Unmounted</span>`;
     const mountBtnLabel = s.mounted_on ? '🔄 Change Mount' : '📍 Mount Scope';
+    const photoCount = (s.image_path ? 1 : 0) + (s.image_path_2 ? 1 : 0);
 
     return `
     <div id="scope-card-${s.id}"
@@ -1096,17 +1084,49 @@ function renderScopeCard(s) {
         <div class="p-4 space-y-2">
             <div class="flex justify-between items-center">
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">OPTIC</span>
-                <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-gray-900 text-gray-300 border border-gray-700">${s.units || 'MOA'}</span>
+                <div class="flex items-center gap-1">
+                    <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-gray-900 text-gray-300 border border-gray-700">${s.units || 'MOA'}</span>
+                    <button onclick="toggleScopeEditPanel(${s.id})" title="Edit scope" class="p-1 rounded bg-gray-700 hover:bg-amber-600 text-gray-400 hover:text-white transition cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                    </button>
+                    <button onclick="toggleScopePhotoPanel(${s.id})" title="Update photos" class="p-1 rounded bg-gray-700 hover:bg-blue-600 text-gray-400 hover:text-white transition cursor-pointer text-sm leading-none">📷</button>
+                </div>
             </div>
             <div class="flex justify-between items-start gap-2">
                 <div>
                     <h3 class="text-base font-bold text-white">${s.brand || '—'}</h3>
                     <p class="text-sm text-amber-500">${s.model || '—'}</p>
+                    ${s.magnification ? `<p class="text-xs text-blue-300 font-mono">${s.magnification}</p>` : ''}
                 </div>
                 <span class="text-xs text-gray-400 font-mono whitespace-nowrap">$${parseFloat(s.price_paid || 0).toFixed(2)}</span>
             </div>
             <div class="border-t border-gray-700 pt-2 space-y-1">
                 <p class="text-xs text-gray-400">📍 ${mountLabel}</p>
+            </div>
+            <!-- Edit panel (hidden) -->
+            <div id="scope-edit-panel-${s.id}" class="hidden border-t border-gray-600 pt-3 space-y-2">
+                <input id="sedit-brand-${s.id}" value="${(s.brand||'').replace(/"/g,'&quot;')}" placeholder="Brand" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                <input id="sedit-model-${s.id}" value="${(s.model||'').replace(/"/g,'&quot;')}" placeholder="Model" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                <input id="sedit-mag-${s.id}" value="${(s.magnification||'').replace(/"/g,'&quot;')}" placeholder="Magnification (e.g. 3-9x40)" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                <div class="flex gap-2">
+                    <select id="sedit-units-${s.id}" class="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                        <option value="MOA" ${(s.units||'MOA')==='MOA'?'selected':''}>MOA</option>
+                        <option value="MRAD" ${s.units==='MRAD'?'selected':''}>MRAD</option>
+                    </select>
+                    <input id="sedit-price-${s.id}" type="number" step="0.01" value="${s.price_paid||0}" placeholder="Price" class="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveScopeEdit(${s.id})" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1.5 rounded transition cursor-pointer">Save</button>
+                    <button onclick="toggleScopeEditPanel(${s.id})" class="px-3 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-bold py-1.5 rounded transition cursor-pointer">Cancel</button>
+                </div>
+            </div>
+            <!-- Photo panel (hidden) -->
+            <div id="scope-photo-panel-${s.id}" class="hidden border-t border-gray-600 pt-2 space-y-1.5">
+                <div class="flex gap-2 items-center">
+                    <input type="file" id="sedit-photo-${s.id}" accept="image/*" class="flex-1 text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
+                    <button onclick="saveScopePhoto(${s.id}, ${photoCount})" class="px-2 py-1 bg-blue-800 hover:bg-blue-700 text-white text-[10px] font-bold rounded cursor-pointer transition">Upload</button>
+                </div>
+                ${s.image_path && s.image_path_2 ? `<button onclick="swapScopePhotos(${s.id})" class="w-full py-1 bg-amber-800 hover:bg-amber-700 text-white text-[10px] font-bold rounded transition cursor-pointer">⭐ Make Primary</button>` : ''}
             </div>
             <!-- Mount editor (hidden until user clicks) -->
             <div id="scope-editor-${s.id}" class="hidden border-t border-gray-600 pt-3 space-y-2">
@@ -1130,33 +1150,29 @@ function renderScopeCard(s) {
                 class="w-full mt-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-bold rounded transition cursor-pointer">
                 ${mountBtnLabel}
             </button>
-            <div class="border-t border-gray-700 pt-2 space-y-1.5 mt-1">
-                <p class="text-[10px] text-gray-500 uppercase tracking-wide">Photos</p>
-                <input type="file" id="sedit-p1-${s.id}" accept="image/*" class="w-full text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
-                <input type="file" id="sedit-p2-${s.id}" accept="image/*" class="w-full text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
-                <div class="flex gap-2">
-                    <button onclick="saveScopePhotos(${s.id})" class="flex-1 py-1 bg-blue-800 hover:bg-blue-700 text-white text-[10px] font-bold rounded transition cursor-pointer">📷 Save Photos</button>
-                    ${s.image_path && s.image_path_2 ? `<button onclick="swapScopePhotos(${s.id})" class="flex-1 py-1 bg-amber-800 hover:bg-amber-700 text-white text-[10px] font-bold rounded transition cursor-pointer">⭐ Swap</button>` : ''}
-                </div>
-            </div>
         </div>
     </div>`;
 }
 
-async function saveScopePhotos(scopeId) {
-    let updated = false;
-    for (const slot of [1, 2]) {
-        const file = document.getElementById(`sedit-p${slot}-${scopeId}`)?.files[0];
-        if (file) {
-            const fd = new FormData();
-            fd.append('image', file);
-            fd.append('slot', String(slot));
-            await fetch(`/scopes/${scopeId}/update-photo/`, { method: 'POST', body: fd });
-            updated = true;
-        }
-    }
-    if (updated) { showToast('Scope photos updated.'); loadScopes(); }
-    else showToast('No photos selected.', 'warn');
+function toggleScopeEditPanel(id) {
+    document.getElementById(`scope-edit-panel-${id}`)?.classList.toggle('hidden');
+}
+
+function toggleScopePhotoPanel(id) {
+    document.getElementById(`scope-photo-panel-${id}`)?.classList.toggle('hidden');
+}
+
+async function saveScopePhoto(scopeId, currentPhotoCount) {
+    const input = document.getElementById(`sedit-photo-${scopeId}`);
+    const file = input?.files[0];
+    if (!file) { showToast('Select a photo first.', 'warn'); return; }
+    const slot = currentPhotoCount < 2 ? currentPhotoCount + 1 : 1;
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('slot', String(slot));
+    await fetch(`/scopes/${scopeId}/update-photo/`, { method: 'POST', body: fd });
+    showToast('Scope photo updated.');
+    loadScopes();
 }
 
 async function swapScopePhotos(scopeId) {
@@ -2612,6 +2628,9 @@ const powderForm = document.getElementById('powder-form');
 if (powderForm) {
     powderForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const containerSize = parseFloat(document.getElementById('pw-container-size')?.value || '1');
+        const containerCount = parseFloat(document.getElementById('pw-container-count')?.value || '0');
+        document.getElementById('pw-weight-lbs-hidden').value = (containerSize * containerCount).toFixed(2);
         const fd = new FormData(e.target);
         const { f1, f2 } = _getPWFiles('pw-powder');
         if (f1) fd.set('image_1', f1, f1.name);
@@ -2703,4 +2722,32 @@ async function applyPreferences() {
     } catch (_) {}
 }
 
-window.onload = () => { fetchInitialLookupData(); loadCatalog(); applyPreferences(); };
+async function loadLandingStats() {
+    const el = document.getElementById('landing-stats');
+    if (!el) return;
+    try {
+        const [firearms, scopes, ammo, powders, primers, bullets, casings] = await Promise.all([
+            fetch('/catalog/').then(r => r.json()),
+            fetch('/scopes/').then(r => r.json()),
+            fetch('/ammo/').then(r => r.json()),
+            fetch('/components/powders/').then(r => r.json()),
+            fetch('/components/primers/').then(r => r.json()),
+            fetch('/components/bullets/').then(r => r.json()),
+            fetch('/components/casings/').then(r => r.json()),
+        ]);
+        const stats = [
+            { icon: '🔫', value: firearms.length, label: 'Firearms' },
+            { icon: '🔭', value: scopes.length,   label: 'Optics' },
+            { icon: '🧪', value: ammo.length,      label: 'Ammo' },
+            { icon: '🔩', value: powders.length + primers.length + bullets.length + casings.length, label: 'Components' },
+        ];
+        el.innerHTML = stats.map(s => `
+            <div class="bg-gray-800/50 rounded-lg py-2.5 text-center">
+                <div class="text-base">${s.icon}</div>
+                <div class="text-sm font-black text-white">${s.value}</div>
+                <div class="text-[9px] text-gray-500 uppercase tracking-wide">${s.label}</div>
+            </div>`).join('');
+    } catch (_) {}
+}
+
+window.onload = () => { fetchInitialLookupData(); applyPreferences(); loadLandingStats(); };

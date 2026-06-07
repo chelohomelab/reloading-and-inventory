@@ -16,7 +16,7 @@ def _powder_dict(p: models.PowderInventory) -> dict:
             "image_path": p.image_path, "image_path_2": p.image_path_2}
 
 def _primer_dict(p: models.PrimerInventory) -> dict:
-    return {"id": p.id, "brand": p.brand, "primer_type": p.primer_type,
+    return {"id": p.id, "brand": p.brand, "model": p.model, "primer_type": p.primer_type,
             "quantity": p.quantity, "price_paid": p.price_paid, "notes": p.notes,
             "image_path": p.image_path, "image_path_2": p.image_path_2}
 
@@ -108,7 +108,7 @@ def list_primers(db: Session = Depends(get_db)):
 
 @router.post("/components/primers/")
 async def add_primer(
-    brand: str = Form(...), primer_type: str = Form(...),
+    brand: str = Form(...), model: str = Form(None), primer_type: str = Form(...),
     quantity: int = Form(0), price: float = Form(0.0),
     notes: str = Form(None),
     image_1: UploadFile = File(None), image_2: UploadFile = File(None),
@@ -116,7 +116,7 @@ async def add_primer(
 ):
     img1 = await save_uploaded_file(image_1, "component")
     img2 = await save_uploaded_file(image_2, "component")
-    p = models.PrimerInventory(brand=brand, primer_type=primer_type,
+    p = models.PrimerInventory(brand=brand, model=model, primer_type=primer_type,
                                quantity=quantity, price_paid=price, notes=notes,
                                image_path=img1, image_path_2=img2)
     db.add(p); db.commit(); db.refresh(p)

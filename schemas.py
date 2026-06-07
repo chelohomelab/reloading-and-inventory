@@ -41,6 +41,7 @@ class PowderPatch(BaseModel):
 
 class PrimerPatch(BaseModel):
     brand: Optional[str] = None
+    model: Optional[str] = None
     primer_type: Optional[str] = None
     quantity: Optional[int] = None
     price_paid: Optional[float] = None
