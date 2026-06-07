@@ -117,13 +117,22 @@ def mark_firearm_sold(firearm_id: int, payload: SoldPayload, db: Session = Depen
 @router.post("/firearms/{firearm_id}/update-photo/")
 async def update_firearm_photo(
     firearm_id: int,
-    image_1: UploadFile = File(...),
+    image: UploadFile = File(None),
+    image_1: UploadFile = File(None),
+    slot: int = Form(1),
     db: Session = Depends(get_db),
 ):
     gun = db.query(models.Firearm).filter(models.Firearm.id == firearm_id).first()
     if not gun:
         raise HTTPException(status_code=404, detail="Firearm not found")
-    gun.image_path_1 = await save_uploaded_file(image_1, "firearm")
+    file = image or image_1
+    if not file:
+        raise HTTPException(status_code=400, detail="No image provided")
+    img_path = await save_uploaded_file(file, "firearm")
+    if slot == 2:
+        gun.image_path_2 = img_path
+    else:
+        gun.image_path_1 = img_path
     db.commit()
     db.refresh(gun)
     return gun
@@ -151,6 +160,7 @@ def get_catalog(frame_type: Optional[str] = None, db: Session = Depends(get_db))
             "frame_type": gun.frame_type,
             "price_paid": gun.price_paid,
             "image_path_1": gun.image_path_1,
+            "image_path_2": gun.image_path_2,
             "is_sold": getattr(gun, "is_sold", False),
             "price_sold": getattr(gun, "price_sold", None),
             "caliber": barrel.caliber if barrel else None,

@@ -28,9 +28,11 @@ class Scope(Base):
     id = Column(Integer, primary_key=True, index=True)
     brand = Column(String)
     model = Column(String)
+    magnification = Column(String, nullable=True)
     units = Column(String, default="MOA")
     price_paid = Column(Float, default=0.0)
     image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
 
     firearms = relationship("Firearm", back_populates="scope")
     barrels = relationship("Barrel", back_populates="scope")
@@ -49,8 +51,10 @@ class TCReceiver(Base):
     id = Column(Integer, primary_key=True, index=True)
     platform = Column(String)           # "Encore" or "Contender"
     serial_number = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
     price_paid = Column(Float, default=0.0)
     image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
     is_sold = Column(Boolean, default=False)
     price_sold = Column(Float, nullable=True)
 
@@ -82,6 +86,7 @@ class Barrel(Base):
     price_paid = Column(Float, default=0.0)
     scope_id = Column(Integer, ForeignKey("scopes.id"), nullable=True)
     image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
     # TC-specific fields (null for regular rifle barrels)
     tc_platform = Column(String, nullable=True)     # "Encore" or "Contender"
     barrel_length = Column(String, nullable=True)
@@ -105,6 +110,8 @@ class CasingInventory(Base):
     times_fired = Column(Integer, default=0)   # 0 = new, 1 = once fired, etc.
     price_paid = Column(Float, default=0.0)
     notes = Column(String, nullable=True)
+    image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
 
 class PowderInventory(Base):
     __tablename__ = "powder_inventory"
@@ -114,15 +121,20 @@ class PowderInventory(Base):
     weight_lbs = Column(Float, default=0.0)  # pounds on hand
     price_paid = Column(Float, default=0.0)
     notes = Column(String, nullable=True)
+    image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
 
 class PrimerInventory(Base):
     __tablename__ = "primer_inventory"
     id = Column(Integer, primary_key=True, index=True)
     brand = Column(String)
+    model = Column(String, nullable=True)  # e.g., "210M", "BR2", "41"
     primer_type = Column(String)        # "Large Rifle", "Small Rifle Magnum", etc.
     quantity = Column(Integer, default=0)
     price_paid = Column(Float, default=0.0)   # per 1000
     notes = Column(String, nullable=True)
+    image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
 
 class BulletInventory(Base):
     __tablename__ = "bullet_inventory"
@@ -137,6 +149,8 @@ class BulletInventory(Base):
     quantity = Column(Integer, default=0)
     price_paid = Column(Float, default=0.0)       # per box/unit price
     notes = Column(String, nullable=True)
+    image_path = Column(String, nullable=True)
+    image_path_2 = Column(String, nullable=True)
 
 # --- AMMUNITION & PERFORMANCE LOGS ---
 class Ammo(Base):
@@ -152,7 +166,8 @@ class Ammo(Base):
     charge_weight = Column(Float, nullable=True)
     coal = Column(Float, nullable=True)
     image_path = Column(String, nullable=True)
-    
+    image_path_2 = Column(String, nullable=True)
+
     shot_strings = relationship("ShotString", back_populates="ammo")
 
 class ShotString(Base):
@@ -236,12 +251,39 @@ def init_db():
         _add_col('ammo', 'caliber', 'caliber VARCHAR')
         _add_col('ammo', 'bullet_bc', 'bullet_bc FLOAT')
 
+    for tbl, col in [
+        ('casing_inventory', 'image_path'),
+        ('casing_inventory', 'image_path_2'),
+        ('powder_inventory', 'image_path'),
+        ('powder_inventory', 'image_path_2'),
+        ('primer_inventory', 'model'),
+        ('primer_inventory', 'image_path'),
+        ('primer_inventory', 'image_path_2'),
+        ('bullet_inventory', 'image_path'),
+        ('bullet_inventory', 'image_path_2'),
+        ('ammo', 'image_path_2'),
+    ]:
+        if tbl in inspector.get_table_names():
+            _add_col(tbl, col, f'{col} VARCHAR')
+
+    if 'firearms' in inspector.get_table_names():
+        _add_col('firearms', 'image_path_2', 'image_path_2 VARCHAR')
+
     if 'barrels' in inspector.get_table_names():
         _add_col('barrels', 'tc_platform',    'tc_platform VARCHAR')
         _add_col('barrels', 'barrel_length',  'barrel_length VARCHAR')
         _add_col('barrels', 'hardware_color', 'hardware_color VARCHAR')
         _add_col('barrels', 'is_threaded',    'is_threaded BOOLEAN DEFAULT FALSE')
         _add_col('barrels', 'has_muzzle_brake', 'has_muzzle_brake BOOLEAN DEFAULT FALSE')
+        _add_col('barrels', 'image_path_2',   'image_path_2 VARCHAR')
+
+    if 'scopes' in inspector.get_table_names():
+        _add_col('scopes', 'magnification', 'magnification VARCHAR')
+        _add_col('scopes', 'image_path_2',  'image_path_2 VARCHAR')
+
+    if 'tc_receivers' in inspector.get_table_names():
+        _add_col('tc_receivers', 'notes',        'notes VARCHAR')
+        _add_col('tc_receivers', 'image_path_2', 'image_path_2 VARCHAR')
 
     # Seed default threshold settings if they don't exist
     _defaults = {

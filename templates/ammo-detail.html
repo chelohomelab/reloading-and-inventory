@@ -6,12 +6,12 @@
     <title>Ammo Detail — Vault</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans antialiased">
+<body class="text-gray-100 font-sans antialiased" style="background-image: url('/static/images/background-2.png'); background-size: contain; background-repeat: no-repeat; background-attachment: fixed; background-position: center; background-color: #0f0f0f;">
 
     <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-50 shadow-md">
         <div class="container mx-auto flex justify-between items-center max-w-5xl">
             <div class="flex items-center space-x-2 text-sm">
-                <a href="index.html" class="text-amber-500 hover:underline font-medium">🎯 Inventory</a>
+                <a href="index.html"><img src="/static/images/logo.png" alt="Inventory" class="h-6 w-auto hover:opacity-80 transition inline-block"></a>
                 <span class="text-gray-500">/</span>
                 <span id="breadcrumb-type" class="text-gray-500 text-xs">Ammunition</span>
                 <span class="text-gray-500">/</span>
@@ -25,25 +25,44 @@
 
         <!-- Header card -->
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-xl">
-            <div class="flex justify-between items-start flex-wrap gap-4">
-                <div class="space-y-1">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span id="badge-type" class="px-2 py-0.5 rounded text-[11px] font-bold border">FACTORY</span>
-                        <span id="badge-caliber" class="px-3 py-1 bg-amber-950 text-amber-400 border border-amber-800 font-mono font-bold rounded-md text-sm">—</span>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Photo column -->
+                <div class="space-y-2">
+                    <div id="main-photo-viewport" onclick="togglePhotoPanel()" title="Click to update photos"
+                        class="w-full h-48 bg-gray-950 border border-gray-700 rounded-lg overflow-hidden flex items-center justify-center relative cursor-pointer">
+                        <span class="text-4xl">📦</span>
                     </div>
-                    <h1 id="detail-name" class="text-3xl font-extrabold text-white tracking-tight mt-2">—</h1>
-                    <p id="detail-line" class="text-amber-500 text-sm font-medium">—</p>
+                    <div id="thumbnail-gallery-strip" class="flex gap-2 overflow-x-auto pb-1"></div>
+                    <div id="photo-panel" class="hidden bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
+                        <p class="text-xs font-bold text-amber-400 uppercase tracking-wide">📷 Update Photos</p>
+                        <div class="flex gap-2 items-center">
+                            <input type="file" id="photo-slot" accept="image/*" class="flex-1 text-[10px] text-gray-400 file:bg-gray-700 file:text-blue-400 file:py-0.5 file:px-2 file:rounded file:border-0 cursor-pointer">
+                            <button onclick="uploadDetailPhoto()" class="px-2 py-1 bg-blue-800 hover:bg-blue-700 text-white text-[10px] font-bold rounded cursor-pointer transition">Upload</button>
+                        </div>
+                    </div>
                 </div>
-                <button onclick="toggleEditPanel()" id="edit-pencil-btn" title="Edit load data"
-                    class="p-2 rounded-md bg-gray-700 hover:bg-amber-600 text-gray-400 hover:text-white border border-gray-600 hover:border-amber-500 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                    </svg>
-                </button>
+                <!-- Info column -->
+                <div class="md:col-span-2">
+                    <div class="flex justify-between items-start flex-wrap gap-4">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span id="badge-type" class="px-2 py-0.5 rounded text-[11px] font-bold border">FACTORY</span>
+                                <span id="badge-caliber" class="px-3 py-1 bg-amber-950 text-amber-400 border border-amber-800 font-mono font-bold rounded-md text-sm">—</span>
+                            </div>
+                            <h1 id="detail-name" class="text-3xl font-extrabold text-white tracking-tight mt-2">—</h1>
+                            <p id="detail-line" class="text-amber-500 text-sm font-medium">—</p>
+                        </div>
+                        <button onclick="toggleEditPanel()" id="edit-pencil-btn" title="Edit load data"
+                            class="p-2 rounded-md bg-gray-700 hover:bg-amber-600 text-gray-400 hover:text-white border border-gray-600 hover:border-amber-500 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Data grid -->
+                    <div id="data-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 text-xs"></div>
+                </div>
             </div>
-
-            <!-- Data grid -->
-            <div id="data-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 text-xs"></div>
         </div>
 
         <!-- Edit panel (hidden by default) -->
@@ -132,6 +151,7 @@
 
     <script>
         let currentAmmoId = null;
+        let currentPhotoCount = 0;
         let ammoData = null;
 
         function showToast(message, type = 'success') {
@@ -154,6 +174,45 @@
             if (!panel.classList.contains('hidden')) {
                 panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+        }
+
+        function togglePhotoPanel() {
+            document.getElementById('photo-panel').classList.toggle('hidden');
+        }
+
+        function renderImageGallery(images) {
+            currentPhotoCount = images.length;
+            const viewport = document.getElementById('main-photo-viewport');
+            const strip = document.getElementById('thumbnail-gallery-strip');
+            if (images.length === 0) {
+                viewport.innerHTML = `<span class="text-4xl">📦</span>`;
+                strip.innerHTML = '';
+                return;
+            }
+            viewport.innerHTML = `<img src="${images[0]}" class="w-full h-full object-contain">`;
+            strip.innerHTML = images.length > 1
+                ? images.map(img => `<img src="${img}" onclick="document.querySelector('#main-photo-viewport img').src='${img}'" class="w-12 h-12 rounded object-cover border-2 border-gray-700 hover:border-amber-500 transition cursor-pointer flex-shrink-0">`).join('')
+                : '';
+        }
+
+        async function uploadDetailPhoto() {
+            const input = document.getElementById('photo-slot');
+            const file = input?.files[0];
+            if (!file) { showToast('Select a photo first.', 'error'); return; }
+            const slot = currentPhotoCount < 2 ? currentPhotoCount + 1 : 1;
+            const fd = new FormData();
+            fd.append('image', file);
+            fd.append('slot', String(slot));
+            try {
+                const res = await fetch(`/ammo/${currentAmmoId}/update-photo/`, { method: 'POST', body: fd });
+                if (res.ok) {
+                    showToast('Photo updated.');
+                    input.value = '';
+                    loadAmmoData();
+                } else {
+                    showToast('Upload failed.', 'error');
+                }
+            } catch { showToast('Error uploading.', 'error'); }
         }
 
         window.onload = function() {
@@ -218,6 +277,9 @@
             }
             cells += cell('Range Sessions', a.usage_count !== undefined ? a.usage_count : '—', 'text-blue-400');
             grid.innerHTML = cells;
+
+            // Photo gallery
+            renderImageGallery([a.image_path, a.image_path_2].filter(Boolean));
 
             // Hydrate edit form
             document.getElementById('ef-brand').value = a.brand || '';
