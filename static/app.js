@@ -2760,4 +2760,13 @@ async function loadLandingStats() {
     } catch (_) {}
 }
 
-window.onload = () => { fetchInitialLookupData(); applyPreferences(); loadLandingStats(); initCustomAC(); };
+window.onload = () => {
+    fetchInitialLookupData(); applyPreferences(); loadLandingStats(); initCustomAC();
+    const p = new URLSearchParams(location.search);
+    if (p.has('tab')) {
+        switchTab(p.get('tab'));
+        if (p.has('inv')) switchInventoryTab(p.get('inv'));
+        if (p.has('platform')) switchPlatformTab(p.get('platform'));
+        if (p.has('ammofilter')) switchAmmoFilter(p.get('ammofilter'));
+    }
+};
