@@ -555,28 +555,33 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
+                        <div id="ammo-factory-bullet-type-row">
                             <label class="block text-xs text-gray-400 mb-1">Bullet Projectile Form Factor</label>
                             <input type="text" name="bullet_type" id="ammo-factory-bullet-type" placeholder="e.g., Soft Point, ELD-M" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
                         </div>
-                        <div>
+                        <div id="ammo-factory-weight-row">
                             <label class="block text-xs text-gray-400 mb-1">Bullet Weight (Grains)</label>
                             <input type="number" step="0.1" name="bullet_weight" id="ammo-factory-weight" placeholder="e.g., 150" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
                         </div>
-                        <div>
+                        <div id="ammo-factory-bc-row">
                             <label class="block text-xs text-gray-400 mb-1">Ballistic Coefficient (G1 BC)</label>
                             <input type="number" step="0.001" name="bullet_bc" id="ammo-factory-bc" placeholder="e.g., 0.415" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none">
+                        </div>
+                        <div id="ammo-factory-shell-row" class="hidden">
+                            <label class="block text-xs text-gray-400 mb-1">Shell Length (inches)</label>
+                            <input type="text" name="shell_size" id="ammo-factory-shell" placeholder='e.g., 2-3/4", 3", 3-1/2"' class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Ammo Type</label>
-                            <select name="ammo_category" id="ammo-factory-cat" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                            <select name="ammo_category" id="ammo-factory-cat" onchange="_toggleFactoryAmmoFields(this.value)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                                 <option value="">Select type…</option>
                                 <option value="centerfire">Centerfire (Rifle)</option>
                                 <option value="handgun">Handgun / Pistol</option>
                                 <option value="rimfire">Rimfire</option>
                                 <option value="shotgun">Shotgun</option>
+                                <option value="shotgun_slug">Shotgun Slug</option>
                                 <option value="muzzleloader">Muzzleloader</option>
                             </select>
                         </div>
@@ -757,16 +762,22 @@
                             <label class="block text-xs text-gray-400 mb-1">Product Name</label>
                             <input type="text" name="name" id="powder-name" data-ac="dl-powder-name" autocomplete="off" placeholder="e.g., H4350, Varget, N165" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
-                        <div>
+                        <!-- Container fields (hidden when muzzleloader) -->
+                        <div id="pw-container-size-col">
                             <label class="block text-xs text-gray-400 mb-1">Container Size</label>
                             <select id="pw-container-size" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                                 <option value="1">1 lb</option>
                                 <option value="8">8 lb</option>
                             </select>
                         </div>
-                        <div>
+                        <div id="pw-container-count-col">
                             <label class="block text-xs text-gray-400 mb-1"># Containers</label>
                             <input type="number" step="1" min="1" id="pw-container-count" placeholder="e.g., 2" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <!-- Quantity (shown only when muzzleloader: pellets/firesticks) -->
+                        <div id="pw-direct-weight-col" class="hidden md:col-span-2">
+                            <label class="block text-xs text-gray-400 mb-1">Quantity on Hand</label>
+                            <input type="number" step="1" min="0" id="pw-direct-weight" placeholder="e.g., 50, 100 (count)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
                         </div>
                     </div>
                     <input type="hidden" name="weight_lbs" id="pw-weight-lbs-hidden">
@@ -789,6 +800,10 @@
                         <input type="file" multiple accept="image/*" id="pw-powder-input" onchange="handlePhotoWidget('pw-powder')" class="hidden">
                         <input type="file" accept="image/*" capture="environment" id="pw-powder-cam" onchange="handlePWCamera('pw-powder')" class="hidden">
                         <div id="pw-powder-preview" class="hidden flex gap-3 mt-2 flex-wrap"></div>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="checkbox" name="is_muzzleloader" id="powder-is-muzzleloader" value="true" onchange="_togglePowderMuzzleloaderFields(this.checked)" class="w-4 h-4 rounded bg-gray-700 border-gray-600 cursor-pointer accent-amber-500">
+                        <label for="powder-is-muzzleloader" class="text-xs text-gray-400 cursor-pointer">Muzzleloader propellant (show in Muzzleloader section)</label>
                     </div>
                     <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded text-sm hover:bg-emerald-500 transition shadow-md cursor-pointer">Log Powder</button>
                 </form>
@@ -823,6 +838,7 @@
                                 <option>Large Pistol Magnum</option>
                                 <option>Small Pistol</option>
                                 <option>Small Pistol Magnum</option>
+                                <option>Shotshell</option>
                             </select>
                         </div>
                         <div>
@@ -849,6 +865,10 @@
                         <input type="file" multiple accept="image/*" id="pw-primer-input" onchange="handlePhotoWidget('pw-primer')" class="hidden">
                         <input type="file" accept="image/*" capture="environment" id="pw-primer-cam" onchange="handlePWCamera('pw-primer')" class="hidden">
                         <div id="pw-primer-preview" class="hidden flex gap-3 mt-2 flex-wrap"></div>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="checkbox" name="is_muzzleloader" id="primer-is-muzzleloader" value="true" class="w-4 h-4 rounded bg-gray-700 border-gray-600 cursor-pointer accent-amber-500">
+                        <label for="primer-is-muzzleloader" class="text-xs text-gray-400 cursor-pointer">Muzzleloader primer (show in Muzzleloader section)</label>
                     </div>
                     <button type="submit" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded text-sm hover:bg-orange-500 transition shadow-md cursor-pointer">Log Primers</button>
                 </form>
@@ -925,6 +945,10 @@
                         <input type="file" multiple accept="image/*" id="pw-bullet-input" onchange="handlePhotoWidget('pw-bullet')" class="hidden">
                         <input type="file" accept="image/*" capture="environment" id="pw-bullet-cam" onchange="handlePWCamera('pw-bullet')" class="hidden">
                         <div id="pw-bullet-preview" class="hidden flex gap-3 mt-2 flex-wrap"></div>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="checkbox" name="is_muzzleloader" id="bullet-comp-is-muzzleloader" value="true" class="w-4 h-4 rounded bg-gray-700 border-gray-600 cursor-pointer accent-amber-500">
+                        <label for="bullet-comp-is-muzzleloader" class="text-xs text-gray-400 cursor-pointer">Muzzleloader bullet / sabot (show in Muzzleloader section)</label>
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded text-sm hover:bg-blue-500 transition shadow-md cursor-pointer">Log Bullets</button>
                 </form>
@@ -1067,6 +1091,6 @@
     <datalist id="dl-handload-brass"></datalist>
 
     <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-    <script src="/static/app.js?v=35"></script>
+    <script src="/static/app.js?v=39"></script>
 </body>
 </html>

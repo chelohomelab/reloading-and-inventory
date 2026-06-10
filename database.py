@@ -120,6 +120,7 @@ class CasingInventory(Base):
     notes = Column(String, nullable=True)
     image_path = Column(String, nullable=True)
     image_path_2 = Column(String, nullable=True)
+    upc = Column(String, nullable=True)
 
 class PowderInventory(Base):
     __tablename__ = "powder_inventory"
@@ -131,6 +132,8 @@ class PowderInventory(Base):
     notes = Column(String, nullable=True)
     image_path = Column(String, nullable=True)
     image_path_2 = Column(String, nullable=True)
+    upc = Column(String, nullable=True)
+    is_muzzleloader = Column(Boolean, default=False)
 
 class PrimerInventory(Base):
     __tablename__ = "primer_inventory"
@@ -143,6 +146,8 @@ class PrimerInventory(Base):
     notes = Column(String, nullable=True)
     image_path = Column(String, nullable=True)
     image_path_2 = Column(String, nullable=True)
+    upc = Column(String, nullable=True)
+    is_muzzleloader = Column(Boolean, default=False)
 
 class BulletInventory(Base):
     __tablename__ = "bullet_inventory"
@@ -161,6 +166,8 @@ class BulletInventory(Base):
     notes = Column(String, nullable=True)
     image_path = Column(String, nullable=True)
     image_path_2 = Column(String, nullable=True)
+    upc = Column(String, nullable=True)
+    is_muzzleloader = Column(Boolean, default=False)
 
 # --- AMMUNITION & PERFORMANCE LOGS ---
 class Ammo(Base):
@@ -182,6 +189,8 @@ class Ammo(Base):
     image_path = Column(String, nullable=True)
     image_path_2 = Column(String, nullable=True)
     ammo_category = Column(String, nullable=True)
+    shell_size = Column(String, nullable=True)
+    upc = Column(String, nullable=True)
 
     shot_strings = relationship("ShotString", back_populates="ammo")
 
@@ -291,6 +300,8 @@ def init_db():
         _add_col('ammo', 'price_paid', 'price_paid FLOAT DEFAULT 0.0')
         _add_col('ammo', 'rounds_per_box', 'rounds_per_box INTEGER DEFAULT 20')
         _add_col('ammo', 'ammo_category', 'ammo_category VARCHAR')
+        _add_col('ammo', 'shell_size', 'shell_size VARCHAR')
+        _add_col('ammo', 'upc', 'upc VARCHAR')
 
     for tbl, col in [
         ('casing_inventory', 'image_path'),
@@ -325,6 +336,16 @@ def init_db():
     if 'bullet_inventory' in inspector.get_table_names():
         _add_col('bullet_inventory', 'qty_sealed', 'qty_sealed INTEGER DEFAULT 0')
         _add_col('bullet_inventory', 'qty_open', 'qty_open INTEGER DEFAULT 0')
+        _add_col('bullet_inventory', 'upc', 'upc VARCHAR')
+        _add_col('bullet_inventory', 'is_muzzleloader', 'is_muzzleloader BOOLEAN DEFAULT FALSE')
+
+    for tbl in ('casing_inventory', 'powder_inventory', 'primer_inventory'):
+        if tbl in inspector.get_table_names():
+            _add_col(tbl, 'upc', 'upc VARCHAR')
+
+    for tbl in ('powder_inventory', 'primer_inventory'):
+        if tbl in inspector.get_table_names():
+            _add_col(tbl, 'is_muzzleloader', 'is_muzzleloader BOOLEAN DEFAULT FALSE')
 
     if 'shot_strings' in inspector.get_table_names():
         _add_col('shot_strings', 'rounds_fired', 'rounds_fired INTEGER')

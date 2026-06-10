@@ -47,6 +47,7 @@ def _ammo_dict(a: models.Ammo) -> dict:
         "image_path": a.image_path,
         "image_path_2": getattr(a, "image_path_2", None),
         "ammo_category": getattr(a, "ammo_category", None),
+        "shell_size": getattr(a, "shell_size", None),
     }
 
 
@@ -70,6 +71,7 @@ async def add_ammo(
     rounds_per_box: int = Form(20),
     upc: str = Form(None),
     ammo_category: str = Form(None),
+    shell_size: str = Form(None),
     image: UploadFile = File(None),
     image_2: UploadFile = File(None),
     db: Session = Depends(get_db),
@@ -97,6 +99,8 @@ async def add_ammo(
         image_path=img_path,
         image_path_2=img2,
         ammo_category=ammo_category,
+        shell_size=shell_size,
+        upc=upc,
     )
     db.add(a)
     db.commit()
@@ -160,7 +164,7 @@ def patch_ammo(ammo_id: int, payload: AmmoPatchPayload, db: Session = Depends(ge
     a = db.query(models.Ammo).filter(models.Ammo.id == ammo_id).first()
     if not a:
         raise HTTPException(status_code=404, detail="Ammo not found")
-    for field, value in payload.dict(exclude_none=True).items():
+    for field, value in payload.dict(exclude_unset=True).items():
         setattr(a, field, value)
     db.commit()
     db.refresh(a)
@@ -178,6 +182,10 @@ def delete_ammo(ammo_id: int, db: Session = Depends(get_db)):
             status_code=400,
             detail=f"Cannot delete: {usage} range session(s) reference this load. Delete those sessions first.",
         )
+    upc = getattr(a, 'upc', None)
     db.delete(a)
     db.commit()
+    if upc:
+        db.query(models.UpcCache).filter(models.UpcCache.upc == upc).delete()
+        db.commit()
     return {"deleted": ammo_id}

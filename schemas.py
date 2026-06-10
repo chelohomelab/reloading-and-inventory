@@ -35,6 +35,7 @@ class AmmoPatchPayload(BaseModel):
     price_paid: Optional[float] = None
     rounds_per_box: Optional[int] = None
     ammo_category: Optional[str] = None
+    shell_size: Optional[str] = None
 
 
 class PowderPatch(BaseModel):
@@ -43,6 +44,7 @@ class PowderPatch(BaseModel):
     weight_lbs: Optional[float] = None
     price_paid: Optional[float] = None
     notes: Optional[str] = None
+    is_muzzleloader: Optional[bool] = None
 
 
 class PrimerPatch(BaseModel):
@@ -52,6 +54,7 @@ class PrimerPatch(BaseModel):
     quantity: Optional[int] = None
     price_paid: Optional[float] = None
     notes: Optional[str] = None
+    is_muzzleloader: Optional[bool] = None
 
 
 class BulletComponentPatch(BaseModel):
@@ -65,6 +68,7 @@ class BulletComponentPatch(BaseModel):
     quantity: Optional[int] = None
     price_paid: Optional[float] = None
     notes: Optional[str] = None
+    is_muzzleloader: Optional[bool] = None
 
 
 class CasingPatch(BaseModel):

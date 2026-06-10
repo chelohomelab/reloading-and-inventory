@@ -114,14 +114,19 @@
 
                 <div class="text-xs">
                     <label class="block text-gray-400 mb-1">Ammo Type / Category</label>
-                    <select id="ef-category" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    <select id="ef-category" onchange="_toggleEditAmmoFields(this.value)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white focus:outline-none focus:border-amber-500">
                         <option value="">Select type…</option>
                         <option value="centerfire">Centerfire (Rifle)</option>
                         <option value="handgun">Handgun / Pistol</option>
                         <option value="rimfire">Rimfire</option>
                         <option value="shotgun">Shotgun</option>
+                        <option value="shotgun_slug">Shotgun Slug</option>
                         <option value="muzzleloader">Muzzleloader</option>
                     </select>
+                </div>
+                <div id="ef-shell-row" class="hidden">
+                    <label class="block text-gray-400 mb-1">Shell Length (inches)</label>
+                    <input type="text" id="ef-shell-size" placeholder='e.g., 2-3/4", 3", 3-1/2"' class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white focus:outline-none focus:border-amber-500">
                 </div>
 
                 <div id="handload-fields" class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs hidden">
@@ -207,6 +212,20 @@
         let currentAmmoId = null;
         let currentPhotoCount = 0;
         let ammoData = null;
+
+        function _toggleEditAmmoFields(cat) {
+            const isShotgun = cat === 'shotgun' || cat === 'shotgun_slug';
+            ['ef-weight', 'ef-bc'].forEach(id => {
+                const el = document.getElementById(id)?.closest('div');
+                if (el) el.classList.toggle('hidden', isShotgun);
+            });
+            const shellRow = document.getElementById('ef-shell-row');
+            if (shellRow) shellRow.classList.toggle('hidden', !isShotgun);
+            if (!isShotgun) {
+                const shellInput = document.getElementById('ef-shell-size');
+                if (shellInput) shellInput.value = '';
+            }
+        }
 
         function showToast(message, type = 'success') {
             const existing = document.getElementById('ammo-toast');
@@ -322,11 +341,16 @@
                     <span class="${accent || 'text-gray-200'} font-bold">${value || '—'}</span>
                 </div>`;
 
+            const isShotgun = a.ammo_category === 'shotgun' || a.ammo_category === 'shotgun_slug';
             let cells = '';
             cells += cell('Caliber', caliber, 'text-amber-400 font-mono');
-            cells += cell('Bullet Weight', a.bullet_weight ? `${a.bullet_weight} gr` : null, 'text-white font-mono');
+            if (isShotgun) {
+                cells += cell('Shell Length', a.shell_size ? `${a.shell_size}"` : null, 'text-orange-400 font-mono');
+            } else {
+                cells += cell('Bullet Weight', a.bullet_weight ? `${a.bullet_weight} gr` : null, 'text-white font-mono');
+                cells += cell('G1 BC', a.bullet_bc != null ? a.bullet_bc.toFixed(3) : '—', a.bullet_bc ? 'text-emerald-400 font-mono' : 'text-gray-600');
+            }
             cells += cell('Bullet Type', a.bullet_type);
-            cells += cell('G1 BC', a.bullet_bc != null ? a.bullet_bc.toFixed(3) : '—', a.bullet_bc ? 'text-emerald-400 font-mono' : 'text-gray-600');
             if (isHandload) {
                 cells += cell('Powder', line);
                 cells += cell('Charge Weight', a.charge_weight ? `${a.charge_weight} gr` : null, 'text-white font-mono');
@@ -371,6 +395,8 @@
             document.getElementById('ef-weight').value = a.bullet_weight || '';
             document.getElementById('ef-bc').value = a.bullet_bc != null ? a.bullet_bc : '';
             document.getElementById('ef-category').value = a.ammo_category || '';
+            document.getElementById('ef-shell-size').value = a.shell_size || '';
+            _toggleEditAmmoFields(a.ammo_category || '');
             if (isHandload) {
                 document.getElementById('handload-fields').classList.remove('hidden');
                 document.getElementById('ef-charge').value = a.charge_weight || '';
@@ -381,6 +407,8 @@
         async function saveEdits(e) {
             e.preventDefault();
             const bcVal = parseFloat(document.getElementById('ef-bc').value);
+            const cat = document.getElementById('ef-category').value;
+            const isShotgun = cat === 'shotgun' || cat === 'shotgun_slug';
             const payload = {
                 brand: document.getElementById('ef-brand').value.trim(),
                 caliber: document.getElementById('ef-caliber').value.trim(),
@@ -388,14 +416,18 @@
                 bullet_type: document.getElementById('ef-bullet-type').value.trim(),
                 bullet_weight: parseFloat(document.getElementById('ef-weight').value) || null,
                 bullet_bc: isNaN(bcVal) ? null : bcVal,
-                ammo_category: document.getElementById('ef-category').value || null,
+                ammo_category: cat || null,
+                shell_size: isShotgun ? (document.getElementById('ef-shell-size').value.trim() || null) : null,
             };
             if (ammoData?.is_handload) {
                 payload.charge_weight = parseFloat(document.getElementById('ef-charge').value) || null;
                 payload.coal = parseFloat(document.getElementById('ef-coal').value) || null;
             }
-            // strip null/empty
-            Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === '') delete payload[k]; });
+            // strip null/empty but always keep ammo_category (send it even if null to reflect intent)
+            Object.keys(payload).forEach(k => {
+                if (k === 'ammo_category') return;
+                if (payload[k] === null || payload[k] === '') delete payload[k];
+            });
 
             try {
                 const res = await fetch(`/ammo/${currentAmmoId}`, {
