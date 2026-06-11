@@ -1,7 +1,10 @@
+import os
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 import database as models
+from config import UPLOAD_DIR
 from dependencies import get_db, save_uploaded_file
 from schemas import AmmoPatchPayload, UseRoundsPayload
 from routers.barcode import upsert_upc_cache
@@ -57,7 +60,7 @@ async def add_ammo(
     recipe_name: str = Form(None),
     bullet_type: str = Form(None),
     bullet_id: str = Form(None),
-    bullet_weight: float = Form(...),
+    bullet_weight: float = Form(None),
     is_handload: bool = Form(False),
     ammo_model: str = Form(None),
     powder_id: str = Form(None),
@@ -132,6 +135,36 @@ async def update_ammo_photo(ammo_id: int, slot: int = Form(1), image: UploadFile
     if slot == 2: a.image_path_2 = path
     else: a.image_path = path
     db.commit()
+    return _ammo_dict(a)
+
+@router.post("/ammo/{ammo_id}/rotate-photo/")
+async def rotate_ammo_photo(ammo_id: int, slot: int = Form(1), db: Session = Depends(get_db)):
+    import uuid as _uuid
+    from PIL import Image as PILImage, ImageOps as PILOps
+    a = db.query(models.Ammo).filter(models.Ammo.id == ammo_id).first()
+    if not a: raise HTTPException(404, "Not found")
+    old_path = a.image_path if slot != 2 else a.image_path_2
+    if not old_path: raise HTTPException(400, "No photo in this slot")
+    old_full = os.path.join(UPLOAD_DIR, os.path.basename(old_path))
+    if not os.path.isfile(old_full):
+        raise HTTPException(400, "Photo file not found on disk")
+    ext = os.path.splitext(old_full)[1] or '.jpg'
+    new_filename = f"ammo_{_uuid.uuid4()}{ext}"
+    new_full = os.path.join(UPLOAD_DIR, new_filename)
+    new_path = f"/static/uploads/{new_filename}"
+    img = PILImage.open(old_full)
+    img = PILOps.exif_transpose(img)
+    rotated = img.rotate(-90, expand=True)
+    img.close()
+    rotated.save(new_full)
+    if slot == 2:
+        a.image_path_2 = new_path
+    else:
+        a.image_path = new_path
+    db.commit()
+    db.refresh(a)
+    try: os.remove(old_full)
+    except Exception: pass
     return _ammo_dict(a)
 
 @router.post("/ammo/{ammo_id}/swap-photos/")

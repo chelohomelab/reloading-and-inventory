@@ -134,6 +134,7 @@ class PowderInventory(Base):
     image_path_2 = Column(String, nullable=True)
     upc = Column(String, nullable=True)
     is_muzzleloader = Column(Boolean, default=False)
+    pellet_mode = Column(Boolean, default=False)
 
 class PrimerInventory(Base):
     __tablename__ = "primer_inventory"
@@ -346,6 +347,9 @@ def init_db():
     for tbl in ('powder_inventory', 'primer_inventory'):
         if tbl in inspector.get_table_names():
             _add_col(tbl, 'is_muzzleloader', 'is_muzzleloader BOOLEAN DEFAULT FALSE')
+
+    if 'powder_inventory' in inspector.get_table_names():
+        _add_col('powder_inventory', 'pellet_mode', 'pellet_mode BOOLEAN DEFAULT FALSE')
 
     if 'shot_strings' in inspector.get_table_names():
         _add_col('shot_strings', 'rounds_fired', 'rounds_fired INTEGER')

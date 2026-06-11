@@ -15,7 +15,8 @@ def _powder_dict(p: models.PowderInventory) -> dict:
     return {"id": p.id, "brand": p.brand, "name": p.name,
             "weight_lbs": p.weight_lbs, "price_paid": p.price_paid, "notes": p.notes,
             "image_path": p.image_path, "image_path_2": p.image_path_2,
-            "is_muzzleloader": getattr(p, "is_muzzleloader", False) or False}
+            "is_muzzleloader": getattr(p, "is_muzzleloader", False) or False,
+            "pellet_mode": getattr(p, "pellet_mode", False) or False}
 
 def _primer_dict(p: models.PrimerInventory) -> dict:
     return {"id": p.id, "brand": p.brand, "model": p.model, "primer_type": p.primer_type,
@@ -66,6 +67,7 @@ async def add_powder(
     weight_lbs: float = Form(0.0), price: float = Form(0.0),
     notes: str = Form(None), upc: str = Form(None),
     is_muzzleloader: bool = Form(False),
+    pellet_mode: bool = Form(False),
     image_1: UploadFile = File(None), image_2: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
@@ -78,7 +80,8 @@ async def add_powder(
     p = models.PowderInventory(brand=brand, name=name, weight_lbs=weight_lbs,
                                price_paid=price, notes=notes,
                                image_path=img1, image_path_2=img2, upc=upc,
-                               is_muzzleloader=is_muzzleloader)
+                               is_muzzleloader=is_muzzleloader,
+                               pellet_mode=pellet_mode)
     db.add(p); db.commit(); db.refresh(p)
     upsert_upc_cache(db, upc, product_type="powder", brand=brand, powder_name=name, title=name)
     return _powder_dict(p)

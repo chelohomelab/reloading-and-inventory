@@ -540,6 +540,24 @@
                             Scan Barcode
                         </button>
                     </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Ammo Type</label>
+                            <select name="ammo_category" id="ammo-factory-cat" onchange="_toggleFactoryAmmoFields(this.value)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                <option value="">Select type…</option>
+                                <option value="centerfire">Centerfire (Rifle)</option>
+                                <option value="handgun">Handgun / Pistol</option>
+                                <option value="rimfire">Rimfire</option>
+                                <option value="shotgun">Shotgun</option>
+                                <option value="shotgun_slug">Shotgun Slug</option>
+                                <option value="muzzleloader">Muzzleloader</option>
+                            </select>
+                        </div>
+                        <div id="ammo-factory-upc-row" class="hidden">
+                            <label class="block text-xs text-gray-400 mb-1">Scanned UPC <span class="text-gray-600">(saved)</span></label>
+                            <input type="text" id="ammo-factory-upc-display" readonly class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-400 font-mono cursor-not-allowed">
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Ammunition Manufacturer</label>
@@ -569,25 +587,12 @@
                         </div>
                         <div id="ammo-factory-shell-row" class="hidden">
                             <label class="block text-xs text-gray-400 mb-1">Shell Length (inches)</label>
-                            <input type="text" name="shell_size" id="ammo-factory-shell" placeholder='e.g., 2-3/4", 3", 3-1/2"' class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Ammo Type</label>
-                            <select name="ammo_category" id="ammo-factory-cat" onchange="_toggleFactoryAmmoFields(this.value)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
-                                <option value="">Select type…</option>
-                                <option value="centerfire">Centerfire (Rifle)</option>
-                                <option value="handgun">Handgun / Pistol</option>
-                                <option value="rimfire">Rimfire</option>
-                                <option value="shotgun">Shotgun</option>
-                                <option value="shotgun_slug">Shotgun Slug</option>
-                                <option value="muzzleloader">Muzzleloader</option>
+                            <select name="shell_size" id="ammo-factory-shell" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                                <option value="">Select length…</option>
+                                <option value="2-3/4">2-3/4"</option>
+                                <option value="3">3"</option>
+                                <option value="3-1/2">3-1/2"</option>
                             </select>
-                        </div>
-                        <div id="ammo-factory-upc-row" class="hidden">
-                            <label class="block text-xs text-gray-400 mb-1">Scanned UPC <span class="text-gray-600">(saved)</span></label>
-                            <input type="text" id="ammo-factory-upc-display" readonly class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-400 font-mono cursor-not-allowed">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -804,6 +809,18 @@
                     <div class="flex items-center gap-2 pt-1">
                         <input type="checkbox" name="is_muzzleloader" id="powder-is-muzzleloader" value="true" onchange="_togglePowderMuzzleloaderFields(this.checked)" class="w-4 h-4 rounded bg-gray-700 border-gray-600 cursor-pointer accent-amber-500">
                         <label for="powder-is-muzzleloader" class="text-xs text-gray-400 cursor-pointer">Muzzleloader propellant (show in Muzzleloader section)</label>
+                    </div>
+                    <!-- Pellet mode selector — shown only when muzzleloader is checked -->
+                    <div id="pw-pellet-mode-row" class="hidden flex items-center gap-4 pl-6">
+                        <input type="hidden" name="pellet_mode" id="pw-pellet-mode-hidden" value="false">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="pw-mode-radio" value="lbs" checked onchange="_setPowderMode(this.value)" class="accent-emerald-500 cursor-pointer">
+                            <span class="text-xs text-gray-300">Weight (lbs) — loose powder</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="pw-mode-radio" value="qty" onchange="_setPowderMode(this.value)" class="accent-blue-400 cursor-pointer">
+                            <span class="text-xs text-gray-300">Count (qty) — pellets / firesticks</span>
+                        </label>
                     </div>
                     <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded text-sm hover:bg-emerald-500 transition shadow-md cursor-pointer">Log Powder</button>
                 </form>
@@ -1091,6 +1108,6 @@
     <datalist id="dl-handload-brass"></datalist>
 
     <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-    <script src="/static/app.js?v=39"></script>
+    <script src="/static/app.js?v=50"></script>
 </body>
 </html>

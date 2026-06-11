@@ -50,6 +50,10 @@
                             </div>
                             <button onclick="uploadDetailPhoto()" class="px-2 py-1 bg-blue-800 hover:bg-blue-700 text-white text-[10px] font-bold rounded cursor-pointer transition">Upload</button>
                         </div>
+                        <div class="flex gap-2 items-center pt-1 border-t border-gray-800">
+                            <span class="text-[10px] text-gray-500 flex-1">Rotate displayed photo:</span>
+                            <button onclick="rotateCurrentPhoto()" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] font-bold rounded cursor-pointer transition">↻ 90°</button>
+                        </div>
                         <input type="file" id="photo-slot" accept="image/*" class="hidden">
                         <input type="file" accept="image/*" capture="environment" id="photo-slot-cam" onchange="_camToInput('photo-slot-cam','photo-slot')" class="hidden">
                     </div>
@@ -170,7 +174,7 @@
         </div>
 
         <!-- Range Sessions -->
-        <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden">
+        <div id="range-sessions-section" class="bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-700 flex justify-between items-center">
                 <h2 class="text-sm font-bold uppercase tracking-wider text-blue-400">📊 Range Sessions Using This Load</h2>
                 <span id="session-badge" class="text-xs bg-gray-900 text-gray-400 px-2 py-0.5 rounded font-mono border border-gray-700">0 Sessions</span>
@@ -211,6 +215,8 @@
 
         let currentAmmoId = null;
         let currentPhotoCount = 0;
+        let currentViewSlot = 1;
+        let photoTimestamp = 0;
         let ammoData = null;
 
         function _toggleEditAmmoFields(cat) {
@@ -224,6 +230,12 @@
             if (!isShotgun) {
                 const shellInput = document.getElementById('ef-shell-size');
                 if (shellInput) shellInput.value = '';
+            }
+            // Update bullet type placeholder to match selected category
+            const btEl = document.getElementById('ef-bullet-type');
+            if (btEl) {
+                const ph = { centerfire: 'e.g., FMJ, SP, HPBT, ELD-M', handgun: 'e.g., FMJ, JHP, FP', rimfire: 'e.g., HP, LRN, FMJ', shotgun: 'e.g., 00 Buck, #6 Shot', shotgun_slug: 'e.g., Foster, Sabot', muzzleloader: 'e.g., Conical, Sabot, Round Ball' };
+                btEl.placeholder = ph[cat] || 'e.g., FMJ, SP, HPBT';
             }
         }
 
@@ -253,8 +265,19 @@
             document.getElementById('photo-panel').classList.toggle('hidden');
         }
 
+        function setViewSlot(slot, src) {
+            currentViewSlot = slot;
+            const vp = document.querySelector('#main-photo-viewport img');
+            if (vp) vp.src = src;
+        }
+
+        function _cacheBust(src) {
+            return photoTimestamp ? src + '?t=' + photoTimestamp : src;
+        }
+
         function renderImageGallery(images) {
             currentPhotoCount = images.length;
+            currentViewSlot = 1;
             const viewport = document.getElementById('main-photo-viewport');
             const strip = document.getElementById('thumbnail-gallery-strip');
             if (images.length === 0) {
@@ -262,10 +285,29 @@
                 strip.innerHTML = '';
                 return;
             }
-            viewport.innerHTML = `<img src="${images[0]}" class="w-full h-full object-contain">`;
+            viewport.innerHTML = `<img src="${_cacheBust(images[0])}" class="w-full h-full object-contain">`;
             strip.innerHTML = images.length > 1
-                ? images.map(img => `<img src="${img}" onclick="document.querySelector('#main-photo-viewport img').src='${img}'" class="w-12 h-12 rounded object-cover border-2 border-gray-700 hover:border-amber-500 transition cursor-pointer flex-shrink-0">`).join('')
+                ? images.map((img, idx) => {
+                    const busted = _cacheBust(img);
+                    return `<img src="${busted}" onclick="setViewSlot(${idx + 1}, '${busted}')" class="w-12 h-12 rounded object-cover border-2 border-gray-700 hover:border-amber-500 transition cursor-pointer flex-shrink-0">`;
+                }).join('')
                 : '';
+        }
+
+        async function rotateCurrentPhoto() {
+            const fd = new FormData();
+            fd.append('slot', String(currentViewSlot));
+            try {
+                const res = await fetch(`/ammo/${currentAmmoId}/rotate-photo/`, { method: 'POST', body: fd });
+                if (res.ok) {
+                    photoTimestamp = Date.now();
+                    showToast('Photo rotated.');
+                    loadAmmoData();
+                } else {
+                    const body = await res.json().catch(() => ({}));
+                    showToast(body.detail || 'Rotate failed.', 'error');
+                }
+            } catch { showToast('Error contacting server.', 'error'); }
         }
 
         async function uploadDetailPhoto() {
@@ -297,7 +339,7 @@
 
         async function loadAmmoData() {
             try {
-                const res = await fetch(`/ammo/${currentAmmoId}`);
+                const res = await fetch(`/ammo/${currentAmmoId}`, { cache: 'no-store' });
                 if (!res.ok) throw new Error('Not found');
                 ammoData = await res.json();
             } catch(err) {
@@ -401,6 +443,12 @@
                 document.getElementById('handload-fields').classList.remove('hidden');
                 document.getElementById('ef-charge').value = a.charge_weight || '';
                 document.getElementById('ef-coal').value = a.coal || '';
+            }
+
+            // Hide range sessions for regular shotgun (birdshot/buckshot); keep for slug/all others
+            const rangeSection = document.getElementById('range-sessions-section');
+            if (rangeSection) {
+                rangeSection.classList.toggle('hidden', a.ammo_category === 'shotgun');
             }
         }
 

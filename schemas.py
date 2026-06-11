@@ -45,6 +45,7 @@ class PowderPatch(BaseModel):
     price_paid: Optional[float] = None
     notes: Optional[str] = None
     is_muzzleloader: Optional[bool] = None
+    pellet_mode: Optional[bool] = None
 
 
 class PrimerPatch(BaseModel):
